@@ -80,7 +80,7 @@ class Agent:
         Confirm the tests pass by running the test tool (not pytest or any other tool).
         Do not install new tools.
         Do not stop until all tests pass with the test tool.
-        When all the tests pass, you are done. Stop working.
+        When all the tests pass, you are done and you should stop working.
         """
         after = await (
             dag.llm()
