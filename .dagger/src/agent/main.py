@@ -91,6 +91,6 @@ class Agent:
 
         # completed_work = after.workspace().container().directory("/app")
 
-        summary = await after.with_prompt("Do not make any more changes to the workspace. Summarize your changes. Use the diff tool from the workspace to obtain a list of all changes made. Include that diff in your summary.").last_reply()
+        summary = await after.with_prompt("After all tests pass, you are done. Summarize your changes. Use the diff tool from the workspace to obtain a list of all the changes you made. Include that diff in your summary.").last_reply()
 
         return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
