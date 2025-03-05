@@ -70,7 +70,7 @@ class Workspace:
             .with_service_binding("db", postgresdb)
             .with_env_variable("DATABASE_URL", "postgresql://postgres:secret@db/app_test")
             .with_env_variable("CACHEBUSTER", str(datetime.now()))
-            .with_exec(["sh", "-c", "pytest"], expect=ReturnType.ANY)
+            .with_exec(["sh", "-c", "pytest --tb=short"], expect=ReturnType.ANY)
             #.with_exec(["pytest"])
         )
         if await cmd.exit_code() != 0:
