@@ -62,7 +62,7 @@ class Agent:
 
         Your task is to resolve failing unit tests in a FastAPI application which uses Pydantic and SQLAlchemy. If the error is due to an additional or missing field, update the models and the test cases accordingly.
 
-        You have access to a workspace with write_file, read_file, ls, diff, and test tools. You must use these tools to identify the errors and fix the failing tests. Provide a brief explanation of your reasoning and process.
+        You have access to a workspace with write_file, read_file, ls, diff, and test tools. You must use these tools to identify the errors and fix the failing tests. When all the tests pass, you are done and you should stop making further changes. Once you are done, provide a brief explanation of your reasoning and process.
 
         Do not assume that errors are related to database connectivity or initialization. The database service is ephemeral. It can only be initialized and used with the test tool. Do not directly modify database configuration settings in your attempts to fix the failing tests.
 
@@ -80,7 +80,7 @@ class Agent:
         Confirm the tests pass by running the test tool (not pytest or any other tool).
         Do not install new tools.
         Do not stop until all tests pass with the test tool.
-        When all the tests pass, you are done and you should stop working.
+        When all the tests pass, you are done and you should stop making further changes.
         """
         after = await (
             dag.llm()
