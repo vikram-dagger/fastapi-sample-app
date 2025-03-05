@@ -1,4 +1,5 @@
 from typing import Annotated, Self
+from datetime import datetime
 from dagger import Container, dag, Directory, DefaultPath, Doc, Secret, function, object_type, ReturnType
 import re
 
@@ -68,6 +69,7 @@ class Workspace:
             self.ctr
             .with_service_binding("db", postgresdb)
             .with_env_variable("DATABASE_URL", "postgresql://postgres:secret@db/app_test")
+            .with_env_variable("CACHEBUSTER", str(datetime.now()))
             .with_exec(["sh", "-c", "pytest"], expect=ReturnType.ANY)
             #.with_exec(["pytest"])
         )
