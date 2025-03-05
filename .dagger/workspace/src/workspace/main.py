@@ -72,7 +72,9 @@ class Workspace:
             #.with_exec(["pytest"])
         )
         if await cmd.exit_code() != 0:
-            raise Exception(f"Tests failed. \nError: {await cmd.stderr()}")
+            stderr = await cmd.stderr()
+            stdout = await cmd.stdout()
+            raise Exception(f"Tests failed. \nError: {stderr} \nOutput: {stdout}")
         return await cmd.stdout()
 
     @function
