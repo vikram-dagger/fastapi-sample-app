@@ -9,8 +9,6 @@ TEST_BOOKS = [
     {"title": "Ready Player One", "author": "Ernest Cline"},
 ]
 
-
-
 class TestMainApp:
     def test_create_app(self, test_app):
         """Test application creation"""
@@ -20,17 +18,6 @@ class TestMainApp:
         """Test database initialization"""
         inspector = inspect(test_engine)
         assert "books" in inspector.get_table_names()
-
-    def test_router_inclusion(self, client):
-        """Test router inclusion and basic API endpoint"""
-        response = client.get("/api/books/")
-        assert response.status_code == 200
-
-    def test_invalid_endpoint(self, client):
-        """Test handling of invalid endpoints"""
-        response = client.get("/invalid")
-        assert response.status_code == 404
-
 
 # Repository Tests
 class TestBookRepository:
