@@ -68,11 +68,11 @@ class Workspace:
             self.ctr
             .with_service_binding("db", postgresdb)
             .with_env_variable("DATABASE_URL", "postgresql://postgres:secret@db/app_test")
-            #.with_exec(["sh", "-c", "pytest"], expect=ReturnType.ANY)
-            .with_exec(["pytest"])
+            .with_exec(["sh", "-c", "pytest"], expect=ReturnType.ANY)
+            #.with_exec(["pytest"])
         )
-        #if await cmd.exit_code() != 0:
-        #    raise Exception(f"Tests failed. \nError: {await cmd.stderr()}")
+        if await cmd.exit_code() != 0:
+            raise Exception(f"Tests failed. \nError: {await cmd.stderr()}")
         return await cmd.stdout()
 
     @function
