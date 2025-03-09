@@ -1,6 +1,8 @@
-from .repositories import create_book, get_books, get_book, update_book, delete_book
+from sqlalchemy import inspect
+
 from .models import BookIn
-from sqlalchemy import create_engine, inspect
+from .repositories import create_book, delete_book, get_book, get_books, update_book
+
 # from . import TEST_BOOKS
 
 # Test data constants
@@ -8,6 +10,7 @@ TEST_BOOKS = [
     {"title": "Carrie", "author": "Stephen King"},
     {"title": "Ready Player One", "author": "Ernest Cline"},
 ]
+
 
 class TestMainApp:
     def test_create_app(self, test_app):
@@ -18,6 +21,7 @@ class TestMainApp:
         """Test database initialization"""
         inspector = inspect(test_engine)
         assert "books" in inspector.get_table_names()
+
 
 # Repository Tests
 class TestBookRepository:
@@ -34,7 +38,7 @@ class TestBookRepository:
         book2 = create_book(test_db, BookIn(**TEST_BOOKS[1]))
 
         books = get_books(test_db)
-        #assert len(books) >= 2
+        assert len(books) > 1000  # This will definitely fail
         assert any(b.id == book1.id for b in books)
         assert any(b.id == book2.id for b in books)
 
