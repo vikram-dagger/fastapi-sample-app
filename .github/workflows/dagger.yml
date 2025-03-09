@@ -31,9 +31,14 @@ jobs:
           verb: call
           args: diagnose --repository=$GITHUB_REPOSITORY --ref=$GITHUB_REF_NAME --token=env://GITHUB_API_TOKEN
           cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+        # env:
+        #   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        #   OPENAI_MODEL: "gpt-4o"
+        #   GITHUB_API_TOKEN: ${{ secrets.GH_API_TOKEN }}
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: "gpt-4o"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # check https://docs.anthropic.com/en/docs/about-claude/models/all-models
+          ANTHROPIC_MODEL: "claude-3-7-sonnet-latest"
           GITHUB_API_TOKEN: ${{ secrets.GH_API_TOKEN }}
         if: ${{ always() &&  github.event_name == 'pull_request' && steps.test.conclusion == 'failure' }}
 
