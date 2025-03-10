@@ -18,7 +18,7 @@ jobs:
         id: test
         uses: dagger/dagger-for-github@8.0.0
         with:
-          version: "0.17.0-llm.4"
+          version: "0.17.0-llm.7"
           module: workspace
           verb: call
           args: test
@@ -27,7 +27,7 @@ jobs:
         id: diagnose
         uses: dagger/dagger-for-github@8.0.0
         with:
-          version: "0.17.0-llm.4"
+          version: "0.17.0-llm.7"
           verb: call
           args: diagnose --repository=$GITHUB_REPOSITORY --ref=$GITHUB_REF_NAME --token=env://GITHUB_API_TOKEN
           cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
@@ -36,32 +36,3 @@ jobs:
           OPENAI_MODEL: "gpt-4o"
           GITHUB_API_TOKEN: ${{ secrets.GH_API_TOKEN }}
         if: ${{ always() &&  github.event_name == 'pull_request' && steps.test.conclusion == 'failure' }}
-
-#      - name: Heal
-#        id: heal
-#        uses: dagger/dagger-for-github@8.0.0
-#        with:
-#          version: "0.17.0-llm.4"
-#          verb: call
-#          args: heal
-#          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
-#        env:
-#          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-#          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-#          OPENAI_MODEL: "gpt-4o"
-#          GITHUB_API_TOKEN: ${{ secrets.GITHUB_API_TOKEN }}
-#        if: ${{ always() && steps.test.conclusion == 'failure' }}
-#      - name: Comment
-#        id: comment
-#        uses: dagger/dagger-for-github@8.0.0
-#        if: ${{ github.event_name == 'pull_request' }}
-#        with:
-#          version: "0.17.0-llm.4"
-#          module: workspace
-#          verb: call
-#          args: comment --repository=env://GITHUB_REPOSITORY --ref=env://GITHUB_REF_NAME --body="Dagger is running on this PR" --token=env://GITHUB_API_TOKEN
-#          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
-#        env:
-#          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-#          OPENAI_MODEL: "gpt-4o"
-#          GITHUB_API_TOKEN: ${{ secrets.GITHUB_API_TOKEN }}
