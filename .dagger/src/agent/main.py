@@ -74,7 +74,7 @@ class Agent:
         summary = await (
             dag.llm()
             .with_workspace(before)
-            .with_prompt_var(diff)
+            .with_prompt_var("diff", diff)
             .with_prompt("Read the code in the workspace. Read the diff below. Summarize the changes made to the code using the diff. Include the diff in your final response. <diff>$diff</diff>")
             .last_reply()
         )
