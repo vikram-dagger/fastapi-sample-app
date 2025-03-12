@@ -62,14 +62,12 @@ class Agent:
         - Do not interact directly with the database; use the test tool only
         - Once all the tests pass, you are done. End your assignment and return a diff of the changes you made.
         """
-        after = await (
+        diff = await (
             dag.llm()
             .with_workspace(before)
             .with_prompt(prompt)
-            .sync()
+            .last_reply()
         )
-
-        diff = after.last_reply()
 
         summary = await (
             dag.llm()
