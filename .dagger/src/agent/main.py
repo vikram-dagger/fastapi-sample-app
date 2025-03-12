@@ -73,7 +73,7 @@ class Agent:
             dag.llm()
             .with_workspace(before)
             .with_prompt_var("diff", diff)
-            .with_prompt("Read the code in the workspace. Read the code diff below. Summarize the changes made to the workspace. Include your summary plus the code diff in your final response. <diff>$diff</diff>")
+            .with_prompt("Read the code in the workspace. Read the code diff below. Treat the changes made to the workspace as a proposal and summarize them. Include your proposal plus the code diff in your final response. <diff>$diff</diff>")
             .last_reply()
         )
 
