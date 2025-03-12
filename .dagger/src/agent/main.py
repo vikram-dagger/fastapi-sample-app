@@ -60,20 +60,20 @@ class Agent:
         - Do not assume that errors are related to database connectivity or initialization
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
-        - Once all the tests pass, you are done. Run the diff tool and return its output.
         """
-        diff = await (
+        work = (
             dag.llm()
             .with_workspace(before)
             .with_prompt(prompt)
-            .last_reply()
         )
+
+        diff = await work.workspace().diff()
 
         summary = await (
             dag.llm()
             .with_workspace(before)
             .with_prompt_var("diff", diff)
-            .with_prompt("Read the code in the workspace. Read the output of the diff tool below. Summarize the changes made to the workspace using the output of the diff tool. Include your summary plus the output of the diff tool in your final response. <diff>$diff</diff>")
+            .with_prompt("Read the code in the workspace. Read the code diff below. Summarize the changes made to the workspace. Include your summary plus the code diff in your final response. <diff>$diff</diff>")
             .last_reply()
         )
 
