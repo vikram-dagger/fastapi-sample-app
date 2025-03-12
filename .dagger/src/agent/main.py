@@ -60,7 +60,7 @@ class Agent:
         - Do not assume that errors are related to database connectivity or initialization
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
-        - Once all the tests pass, you are done. End your assignment and return a diff of the changes you made.
+        - Once all the tests pass, you are done. Run the diff tool and return its output.
         """
         diff = await (
             dag.llm()
@@ -73,7 +73,7 @@ class Agent:
             dag.llm()
             .with_workspace(before)
             .with_prompt_var("diff", diff)
-            .with_prompt("Read the code in the workspace. Read the diff below. Summarize the changes made to the code using the diff. Include the diff in your final response. <diff>$diff</diff>")
+            .with_prompt("Read the code in the workspace. Read the output of the diff tool below. Summarize the changes made to the workspace using the output of the diff tool. Include your summary plus the output of the diff tool in your final response. <diff>$diff</diff>")
             .last_reply()
         )
 
