@@ -119,6 +119,7 @@ class CodeSuggestion:
     line: int
     suggestion: List[str]
     position: int  # Position in the diff (relative to the hunk header)
+    diff_hunk: str  # The diff hunk context
 
 
 @object_type
@@ -249,6 +250,9 @@ class Workspace:
                             line=added_line_numbers[0],  # Use the first line number
                             suggestion=added_lines,
                             position=position_in_hunk,
+                            diff_hunk="\n".join(
+                                current_diff_hunk[-10:]
+                            ),  # Last 10 lines of context
                         )
                     )
                     added_lines = []
@@ -270,6 +274,9 @@ class Workspace:
                             line=added_line_numbers[0],  # Use the first line number
                             suggestion=added_lines,
                             position=position_in_hunk,
+                            diff_hunk="\n".join(
+                                current_diff_hunk[-10:]
+                            ),  # Last 10 lines of context
                         )
                     )
                     added_lines = []
@@ -310,6 +317,9 @@ class Workspace:
                         suggestion=added_lines,
                         position=position_in_hunk
                         - len(added_lines),  # Adjust position to start of block
+                        diff_hunk="\n".join(
+                            current_diff_hunk[-10:]
+                        ),  # Last 10 lines of context
                     )
                 )
                 added_lines = []
@@ -329,6 +339,9 @@ class Workspace:
                     line=added_line_numbers[0],
                     suggestion=added_lines,
                     position=position_in_hunk - len(added_lines) + 1,
+                    diff_hunk="\n".join(
+                        current_diff_hunk[-10:]
+                    ),  # Last 10 lines of context
                 )
             )
 
@@ -366,22 +379,43 @@ class Workspace:
         if not suggestions:
             return "No suggestions to make"
 
-        # Create review comments for each suggestion
-        for suggestion in suggestions:
+        # Process each suggestion individually
+        successful_suggestions = 0
+        fallback_suggestions = 0
+
+        for i, suggestion in enumerate(suggestions):
             suggestion_text = "\n".join(suggestion.suggestion)
+            print(
+                f"Processing suggestion {i + 1}/{len(suggestions)} for file {suggestion.file}, line {suggestion.line}"
+            )
+
+            # Try to create a review comment
             try:
-                await github.create_review_comment(
-                    repository=repository,
-                    pull_number=pr_number,
+                # Create individual review comments
+                pr = repo.get_pull(pr_number)
+                pr.create_review_comment(
+                    body=f"```suggestion\n{suggestion_text}\n```",
                     commit=commit_obj,
                     path=suggestion.file,
-                    line=suggestion.line,
-                    body=f"```suggestion\n{suggestion_text}\n```",
+                    line=suggestion.line,  # Use line instead of position
+                    as_suggestion=True,
                 )
+                successful_suggestions += 1
+                print(f"Successfully created review comment for {suggestion.file}")
             except Exception as e:
-                print(f"Error creating review comment: {e}")
+                print(f"Error creating review comment for {suggestion.file}: {e}")
 
-        return f"Posted {len(suggestions)} suggestions"
+                # Try fallback to regular issue comment
+                try:
+                    pr.create_issue_comment(
+                        f"Suggestion for `{suggestion.file}` line {suggestion.line}:\n```suggestion\n{suggestion_text}\n```"
+                    )
+                    fallback_suggestions += 1
+                    print(f"Created fallback issue comment for {suggestion.file}")
+                except Exception as e2:
+                    print(f"Error creating fallback comment: {e2}")
+
+        return f"Posted {successful_suggestions} suggestions directly, {fallback_suggestions} as regular comments"
 
     @function
     async def comment(
