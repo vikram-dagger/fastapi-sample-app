@@ -1,7 +1,8 @@
 from typing import Annotated
-# for suggestions
 import re
 
+import workspace
+from workspace import Change
 
 import dagger
 from dagger import DefaultPath, Secret, Doc, dag, function, object_type
@@ -113,6 +114,7 @@ class Agent:
         )
 
         diff = await work.workspace().diff()
+
         changes = self.parse_git_diff(diff)
 
         await dag.workspace(source=source, token=token).suggest(repository, ref, changes)
@@ -161,13 +163,3 @@ class Agent:
                         pass
 
         return changes
-
-class Change:
-    def __init__(self, file_path, change_type, line_number, content):
-        self.file_path = file_path
-        self.change_type = change_type  # 'added', 'removed', 'modified'
-        self.line_number = line_number
-        self.content = content
-
-    def __repr__(self):
-        return f"Change(file_path={self.file_path}, change_type={self.change_type}, line_number={self.line_number}, content={self.content})"

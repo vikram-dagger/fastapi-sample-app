@@ -1,12 +1,23 @@
-from typing import Annotated, Self
+from typing import Annotated, Self, List
 from datetime import datetime
-
-# for suggestions
 import requests
 import json
+import re
 
 from dagger import Container, dag, Directory, DefaultPath, Doc, Secret, function, object_type, ReturnType
-import re
+
+
+
+class Change:
+    def __init__(self, file_path, change_type, line_number, content):
+        self.file_path = file_path
+        self.change_type = change_type  # 'added', 'removed', 'modified'
+        self.line_number = line_number
+        self.content = content
+
+    def __repr__(self):
+        return f"Change(file_path={self.file_path}, change_type={self.change_type}, line_number={self.line_number}, content={self.content})"
+
 
 @object_type
 class Workspace:
@@ -117,7 +128,7 @@ class Workspace:
         self,
         repository: Annotated[str, Doc("The owner and repository name")],
         ref: Annotated[str, Doc("The ref name")],
-        changes: Annotated[str, Doc("Array of change objects")],
+        changes: Annotated[list[Change], Doc("Array of Change objects")],
     ) -> str:
         """Adds suggestions to the PR"""
         repository_url = f"https://github.com/{repository}"
@@ -134,9 +145,7 @@ class Workspace:
             "comments": []
         }
 
-        # Create the suggestions (comments)
         for change in changes:
-            # Formatting each change into GitHub suggestion comment format
             suggestion = {
                 "path": change.file_path,
                 "position": change.line_number,
@@ -144,7 +153,6 @@ class Workspace:
             }
             review_body["comments"].append(suggestion)
 
-        # Send the request to GitHub API
         response = requests.post(api_url, headers=headers, data=json.dumps(review_body))
 
         if response.status_code == 201:
