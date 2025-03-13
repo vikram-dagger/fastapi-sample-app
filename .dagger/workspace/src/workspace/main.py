@@ -8,18 +8,6 @@ from dagger import Container, dag, Directory, DefaultPath, Doc, Secret, function
 
 
 @object_type
-class Change:
-    def __init__(self, file_path, change_type, line_number, content):
-        self.file_path = file_path
-        self.change_type = change_type  # 'added', 'removed', 'modified'
-        self.line_number = line_number
-        self.content = content
-
-    def __repr__(self):
-        return f"Change(file_path={self.file_path}, change_type={self.change_type}, line_number={self.line_number}, content={self.content})"
-
-
-@object_type
 class Workspace:
     ctr: Container
     source: Directory
@@ -122,44 +110,6 @@ class Workspace:
           .github_comment(self.token, repository_url, issue=pr_number)
           .create(body)
         )
-
-    @function
-    async def suggest(
-        self,
-        repository: Annotated[str, Doc("The owner and repository name")],
-        ref: Annotated[str, Doc("The ref name")],
-        changes: Annotated[list[Change], Doc("Array of Change objects")],
-    ) -> str:
-        """Adds suggestions to the PR"""
-        repository_url = f"https://github.com/{repository}"
-        pr_number = int(re.search(r"(\d+)", ref).group(1))
-        api_url = f"https://api.github.com/repos/{repository_url}/pulls/{pr_number}/reviews"
-
-        headers = {
-            "Authorization": f"token {self.token}",
-            "Accept": "application/vnd.github.v3+json"
-        }
-
-        review_body = {
-            "event": "REQUEST_CHANGES",
-            "comments": []
-        }
-
-        for change in changes:
-            suggestion = {
-                "path": change.file_path,
-                "position": change.line_number,
-                "body": f"```suggestion\n{change.content}\n```"
-            }
-            review_body["comments"].append(suggestion)
-
-        response = requests.post(api_url, headers=headers, data=json.dumps(review_body))
-
-        if response.status_code == 201:
-            print(f"Successfully created review suggestions for PR #{pr_number}.")
-        else:
-            print(f"Failed to create review suggestions: {response.status_code}")
-            print(response.json())
 
     @function
     def container(
