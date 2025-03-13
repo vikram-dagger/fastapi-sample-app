@@ -7,7 +7,7 @@ import re
 from dagger import Container, dag, Directory, DefaultPath, Doc, Secret, function, object_type, ReturnType
 
 
-
+@object_type
 class Change:
     def __init__(self, file_path, change_type, line_number, content):
         self.file_path = file_path

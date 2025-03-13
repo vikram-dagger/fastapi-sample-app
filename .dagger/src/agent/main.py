@@ -1,9 +1,6 @@
 from typing import Annotated
 import re
 
-import workspace
-from workspace import Change
-
 import dagger
 from dagger import DefaultPath, Secret, Doc, dag, function, object_type
 
