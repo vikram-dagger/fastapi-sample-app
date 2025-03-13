@@ -233,12 +233,19 @@ class Workspace:
         # Keep track of which lines were actually modified in the diff
         modified_files = {}  # file -> set of modified line numbers
 
+        # For debugging
+        print(f"Parsing diff of length {len(diff_text)}")
+
         # Regular expressions for file and hunk detection
         file_regex = re.compile(r"^diff --git a/.*? b/(.*?)$")
-        hunk_regex = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@.*$")
+        hunk_regex = re.compile(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@.*$")
 
         lines = diff_text.splitlines()
         i = 0
+
+        # For tracking line pairs (removed and added)
+        removed_line = None
+        removed_line_number = 0
 
         while i < len(lines):
             line = lines[i]
@@ -266,6 +273,8 @@ class Workspace:
                 if current_file not in modified_files:
                     modified_files[current_file] = set()
                 current_diff_hunk = []
+                removed_line = None
+                removed_line_number = 0
                 i += 1
                 continue
 
@@ -288,9 +297,17 @@ class Workspace:
                     added_lines = []
                     added_line_numbers = []
 
-                current_hunk_start_line = int(hunk_match.group(1))
+                # Get both the original and new line numbers from the hunk header
+                original_start = int(hunk_match.group(1))
+                new_start = int(hunk_match.group(2))
+
+                current_hunk_start_line = new_start - 1  # 0-based for internal tracking
                 position_in_hunk = 1  # Reset position counter for new hunk
                 current_diff_hunk = [line]  # Start collecting the hunk
+                removed_line = None
+                removed_line_number = (
+                    original_start - 1
+                )  # 0-based for internal tracking
                 i += 1
                 continue
 
@@ -302,15 +319,35 @@ class Workspace:
             if position_in_hunk > 0:
                 position_in_hunk += 1
 
-            # Track modified lines
+            # Track modified lines with better handling of line pairs
             if current_file and position_in_hunk > 0:
-                if line.startswith("+") and not line.startswith("+++"):
-                    # This is an added or modified line
-                    line_number = current_hunk_start_line + (position_in_hunk - 2)
-                    modified_files[current_file].add(line_number)
-                elif line.startswith("-") and not line.startswith("---"):
-                    # This is a removed line
-                    pass  # We don't need to track removed lines for suggestions
+                if line.startswith("-") and not line.startswith("---"):
+                    # This is a removed line - store it for potential pairing
+                    removed_line = line[1:]  # Remove the '-' prefix
+                    removed_line_number += 1
+                elif line.startswith("+") and not line.startswith("+++"):
+                    # This is an added line
+                    current_line_number = current_hunk_start_line + 1
+
+                    # Mark this line as modified
+                    modified_files[current_file].add(current_line_number)
+
+                    # If we have a removed line right before this, it's likely a modification
+                    # rather than a pure addition
+                    if removed_line is not None:
+                        # This is a modified line (replacement)
+                        # We've already marked it as modified above
+                        removed_line = None  # Reset for next pair
+
+                    current_hunk_start_line += 1
+                else:
+                    # This is a context line
+                    if not line.startswith(
+                        "\\"
+                    ):  # Ignore "\ No newline at end of file"
+                        current_hunk_start_line += 1
+                        removed_line_number += 1
+                        removed_line = None  # Reset removed line tracking
 
             # Collect added lines (additions)
             if line.startswith("+") and not line.startswith("+++"):
@@ -320,7 +357,7 @@ class Workspace:
                 if content.strip():
                     if not added_lines:
                         # This is the first line of a new addition
-                        line_number = current_hunk_start_line + len(added_line_numbers)
+                        line_number = current_hunk_start_line
                         added_line_numbers.append(line_number)
                     added_lines.append(content)
             elif added_lines and current_file and current_diff_hunk:
@@ -341,10 +378,6 @@ class Workspace:
                 added_lines = []
                 added_line_numbers = []
 
-            # Update line tracking for non-removal lines
-            if not line.startswith("-"):
-                current_hunk_start_line += 1
-
             i += 1
 
         # Handle any remaining added lines at the end of the file
@@ -361,11 +394,18 @@ class Workspace:
                 )
             )
 
+        # Print the modified files and lines for debugging
+        for file, lines in modified_files.items():
+            print(f"Modified file: {file}, lines: {sorted(lines)}")
+
         # Store the modified files information for validation
         for suggestion in suggestions:
             suggestion.is_in_diff = (
                 suggestion.file in modified_files
                 and suggestion.line in modified_files[suggestion.file]
+            )
+            print(
+                f"Suggestion for {suggestion.file}:{suggestion.line} is_in_diff={suggestion.is_in_diff}"
             )
 
         return suggestions
