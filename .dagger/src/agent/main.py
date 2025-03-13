@@ -127,7 +127,7 @@ class Agent:
 
         return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
 
-    def parse_git_diff(diff: str):
+    def parse_git_diff(self, diff: str):
         changes = []
         current_file = None
         line_number = 0
