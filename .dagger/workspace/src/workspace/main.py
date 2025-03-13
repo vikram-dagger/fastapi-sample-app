@@ -191,73 +191,105 @@ class Workspace:
         """Parse a unified diff format text into code suggestions"""
         suggestions = []
         current_file = ""
-        current_line = 0
-        new_code = []
-        current_position = 0  # Position counter for the current hunk
-        removal_reached = False
-        in_hunk = False
+        current_hunk_start_line = 0
+        position_in_hunk = 0
+        added_lines = []
+        added_line_numbers = []
 
-        # Regular expressions for file detection and line number parsing
-        file_regex = re.compile(r"^\+\+\+ b/(.+)")
-        line_regex = re.compile(r"^@@ .* \+(\d+),?")
+        # Regular expressions for file and hunk detection
+        file_regex = re.compile(r"^diff --git a/.*? b/(.*?)$")
+        hunk_regex = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
-        for line in diff_text.splitlines():
-            # Detect file name
-            if match := file_regex.match(line):
-                current_file = match.group(1)
-                in_hunk = False
-                current_position = 0
-                continue
+        lines = diff_text.splitlines()
+        i = 0
 
-            # Detect modified line number in the new file
-            if match := line_regex.match(line):
-                current_line = int(match.group(1)) - 1  # Convert to 0-based index
-                new_code = []  # Reset new code buffer
-                current_position = (
-                    1  # Reset position counter (first line after @@ is position 1)
-                )
-                in_hunk = True
-                removal_reached = False
-                continue
+        while i < len(lines):
+            line = lines[i]
 
-            # Only process lines if we're in a hunk
-            if not in_hunk:
-                continue
-
-            # Increment position for each line in the diff after a hunk header
-            current_position += 1
-
-            # Extract new code (ignoring metadata lines)
-            if line.startswith("+") and not line.startswith("+++"):
-                new_code.append(line[1:])  # Remove '+'
-                continue
-
-            if not removal_reached:
-                current_line += 1  # Track line modifications
-
-            # If a removed line ('-') appears after '+' lines, store the suggestion
-            if line.startswith("-") and not line.startswith("---"):
-                if new_code and current_file:
+            # Check for file header
+            file_match = file_regex.match(line)
+            if file_match:
+                current_file = file_match.group(1)
+                # Process any pending suggestions before moving to a new file
+                if added_lines and current_file:
                     suggestions.append(
                         CodeSuggestion(
                             file=current_file,
-                            line=current_line,
-                            suggestion=new_code,
-                            position=current_position
-                            - 1,  # Use the position of this line in the diff
+                            line=added_line_numbers[0],  # Use the first line number
+                            suggestion=added_lines,
+                            position=position_in_hunk,
                         )
                     )
-                    new_code = []  # Reset new code buffer
-                removal_reached = True
+                    added_lines = []
+                    added_line_numbers = []
+                i += 1
+                continue
 
-        # If there's a pending multi-line suggestion, add it
-        if new_code and current_file and in_hunk:
+            # Check for hunk header
+            hunk_match = hunk_regex.match(line)
+            if hunk_match:
+                # Process any pending suggestions before moving to a new hunk
+                if added_lines and current_file:
+                    suggestions.append(
+                        CodeSuggestion(
+                            file=current_file,
+                            line=added_line_numbers[0],  # Use the first line number
+                            suggestion=added_lines,
+                            position=position_in_hunk,
+                        )
+                    )
+                    added_lines = []
+                    added_line_numbers = []
+
+                current_hunk_start_line = int(hunk_match.group(1))
+                position_in_hunk = 1  # Reset position counter for new hunk
+                i += 1
+                continue
+
+            # Track position for each line after a hunk header
+            if position_in_hunk > 0:
+                position_in_hunk += 1
+
+            # Collect added lines (additions)
+            if line.startswith("+") and not line.startswith("+++"):
+                # Skip the + prefix
+                content = line[1:]
+                # Only collect meaningful additions (not just whitespace changes)
+                if content.strip():
+                    if not added_lines:
+                        # This is the first line of a new addition
+                        line_number = current_hunk_start_line + len(added_line_numbers)
+                        added_line_numbers.append(line_number)
+                    added_lines.append(content)
+            elif added_lines and current_file:
+                # We've reached the end of a block of additions
+                # Create a suggestion for the accumulated added lines
+                suggestions.append(
+                    CodeSuggestion(
+                        file=current_file,
+                        line=added_line_numbers[0],  # Use the first line number
+                        suggestion=added_lines,
+                        position=position_in_hunk
+                        - len(added_lines),  # Adjust position to start of block
+                    )
+                )
+                added_lines = []
+                added_line_numbers = []
+
+            # Update line tracking for non-removal lines
+            if not line.startswith("-"):
+                current_hunk_start_line += 1
+
+            i += 1
+
+        # Handle any remaining added lines at the end of the file
+        if added_lines and current_file:
             suggestions.append(
                 CodeSuggestion(
                     file=current_file,
-                    line=current_line,
-                    suggestion=new_code,
-                    position=current_position,  # Use the current position in the diff
+                    line=added_line_numbers[0],
+                    suggestion=added_lines,
+                    position=position_in_hunk - len(added_lines) + 1,
                 )
             )
 
