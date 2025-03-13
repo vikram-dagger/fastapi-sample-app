@@ -87,6 +87,7 @@ class CodeSuggestion:
     file: str
     line: int
     suggestion: List[str]
+    position: int  # Position in the diff (relative to the hunk header)
 
 
 @object_type
@@ -192,7 +193,9 @@ class Workspace:
         current_file = ""
         current_line = 0
         new_code = []
+        current_position = 0  # Position counter for the current hunk
         removal_reached = False
+        in_hunk = False
 
         # Regular expressions for file detection and line number parsing
         file_regex = re.compile(r"^\+\+\+ b/(.+)")
@@ -202,14 +205,27 @@ class Workspace:
             # Detect file name
             if match := file_regex.match(line):
                 current_file = match.group(1)
+                in_hunk = False
+                current_position = 0
                 continue
 
             # Detect modified line number in the new file
             if match := line_regex.match(line):
                 current_line = int(match.group(1)) - 1  # Convert to 0-based index
                 new_code = []  # Reset new code buffer
+                current_position = (
+                    1  # Reset position counter (first line after @@ is position 1)
+                )
+                in_hunk = True
                 removal_reached = False
                 continue
+
+            # Only process lines if we're in a hunk
+            if not in_hunk:
+                continue
+
+            # Increment position for each line in the diff after a hunk header
+            current_position += 1
 
             # Extract new code (ignoring metadata lines)
             if line.startswith("+") and not line.startswith("+++"):
@@ -224,17 +240,24 @@ class Workspace:
                 if new_code and current_file:
                     suggestions.append(
                         CodeSuggestion(
-                            file=current_file, line=current_line, suggestion=new_code
+                            file=current_file,
+                            line=current_line,
+                            suggestion=new_code,
+                            position=current_position
+                            - 1,  # Use the position of this line in the diff
                         )
                     )
                     new_code = []  # Reset new code buffer
                 removal_reached = True
 
         # If there's a pending multi-line suggestion, add it
-        if new_code and current_file:
+        if new_code and current_file and in_hunk:
             suggestions.append(
                 CodeSuggestion(
-                    file=current_file, line=current_line, suggestion=new_code
+                    file=current_file,
+                    line=current_line,
+                    suggestion=new_code,
+                    position=current_position,  # Use the current position in the diff
                 )
             )
 
@@ -279,9 +302,8 @@ class Workspace:
             review_comments.append(
                 {
                     "path": suggestion.file,
-                    "line": suggestion.line,
+                    "position": suggestion.position,  # Position in the diff
                     "body": f"```suggestion\n{suggestion_text}\n```",
-                    "side": "RIGHT",
                 }
             )
 
