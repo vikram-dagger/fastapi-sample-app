@@ -14,6 +14,3 @@ if appropriate. All modules should have a short description.
 """
 
 from .main import Workspace as Workspace
-from .suggestions import parse_diff
-
-__all__ = ["parse_diff"]
