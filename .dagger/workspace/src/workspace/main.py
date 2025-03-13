@@ -79,6 +79,37 @@ class GitHubClient:
         # Create the review with all comments
         pr.create_review(**post_parameters)
 
+    async def create_review_comment(
+        self,
+        repository: str,
+        pull_number: int,
+        commit,
+        path: str,
+        line: int,
+        body: str,
+    ) -> None:
+        """Create a review comment on a pull request
+
+        Args:
+            repository: Full repository name (e.g., "owner/repo")
+            pull_number: Pull request number
+            commit: The commit object to review
+            path: File path to comment on
+            line: Line number to comment on
+            body: The comment text
+        """
+        if not self.github:
+            await self.init()
+        repo = self.github.get_repo(repository)
+        pr = repo.get_pull(pull_number)
+
+        # Create the review comment
+        pr.create_review_comment(
+            body=body, commit=commit, path=path, line=line, as_suggestion=True
+        )
+
+        return None
+
 
 @dataclass
 class CodeSuggestion:
@@ -195,10 +226,11 @@ class Workspace:
         position_in_hunk = 0
         added_lines = []
         added_line_numbers = []
+        current_diff_hunk = []
 
         # Regular expressions for file and hunk detection
         file_regex = re.compile(r"^diff --git a/.*? b/(.*?)$")
-        hunk_regex = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+        hunk_regex = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@.*$")
 
         lines = diff_text.splitlines()
         i = 0
@@ -209,9 +241,8 @@ class Workspace:
             # Check for file header
             file_match = file_regex.match(line)
             if file_match:
-                current_file = file_match.group(1)
                 # Process any pending suggestions before moving to a new file
-                if added_lines and current_file:
+                if added_lines and current_file and current_diff_hunk:
                     suggestions.append(
                         CodeSuggestion(
                             file=current_file,
@@ -222,6 +253,9 @@ class Workspace:
                     )
                     added_lines = []
                     added_line_numbers = []
+
+                current_file = file_match.group(1)
+                current_diff_hunk = []
                 i += 1
                 continue
 
@@ -229,7 +263,7 @@ class Workspace:
             hunk_match = hunk_regex.match(line)
             if hunk_match:
                 # Process any pending suggestions before moving to a new hunk
-                if added_lines and current_file:
+                if added_lines and current_file and current_diff_hunk:
                     suggestions.append(
                         CodeSuggestion(
                             file=current_file,
@@ -243,8 +277,13 @@ class Workspace:
 
                 current_hunk_start_line = int(hunk_match.group(1))
                 position_in_hunk = 1  # Reset position counter for new hunk
+                current_diff_hunk = [line]  # Start collecting the hunk
                 i += 1
                 continue
+
+            # Collect the diff hunk
+            if current_diff_hunk:
+                current_diff_hunk.append(line)
 
             # Track position for each line after a hunk header
             if position_in_hunk > 0:
@@ -261,7 +300,7 @@ class Workspace:
                         line_number = current_hunk_start_line + len(added_line_numbers)
                         added_line_numbers.append(line_number)
                     added_lines.append(content)
-            elif added_lines and current_file:
+            elif added_lines and current_file and current_diff_hunk:
                 # We've reached the end of a block of additions
                 # Create a suggestion for the accumulated added lines
                 suggestions.append(
@@ -283,7 +322,7 @@ class Workspace:
             i += 1
 
         # Handle any remaining added lines at the end of the file
-        if added_lines and current_file:
+        if added_lines and current_file and current_diff_hunk:
             suggestions.append(
                 CodeSuggestion(
                     file=current_file,
@@ -327,27 +366,20 @@ class Workspace:
         if not suggestions:
             return "No suggestions to make"
 
-        # Format all suggestions as review comments
-        review_comments = []
+        # Create review comments for each suggestion
         for suggestion in suggestions:
             suggestion_text = "\n".join(suggestion.suggestion)
-            review_comments.append(
-                {
-                    "path": suggestion.file,
-                    "position": suggestion.position,  # Position in the diff
-                    "body": f"```suggestion\n{suggestion_text}\n```",
-                }
-            )
-
-        # Create the review with all comments
-        await github.create_review(
-            repository=repository,
-            pull_number=pr_number,
-            commit=commit_obj,
-            body="Code suggestions from automated review",
-            event="COMMENT",
-            comments=review_comments,
-        )
+            try:
+                await github.create_review_comment(
+                    repository=repository,
+                    pull_number=pr_number,
+                    commit=commit_obj,
+                    path=suggestion.file,
+                    line=suggestion.line,
+                    body=f"```suggestion\n{suggestion_text}\n```",
+                )
+            except Exception as e:
+                print(f"Error creating review comment: {e}")
 
         return f"Posted {len(suggestions)} suggestions"
 
