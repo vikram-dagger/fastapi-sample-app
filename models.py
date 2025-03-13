@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String
+from sqlalchemy import String, Number
 from pydantic import BaseModel, ConfigDict
 
 
@@ -18,6 +18,7 @@ class Book(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(255), index=True)
     author: Mapped[str] = mapped_column(String(255))
+    price: Mapped[str] = mapped_column(Number(255), nullable=False)
 
 # Pydantic models
 class BookIn(BaseModel):
