@@ -1,9 +1,9 @@
-from typing import Annotated
+from typing import Annotated, List
 import re
 
 import dagger
 from dagger import DefaultPath, Secret, Doc, dag, function, object_type
-
+from .workspace import Change
 
 @object_type
 class Agent:
@@ -126,37 +126,73 @@ class Agent:
 
         return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
 
-    def parse_git_diff(self, diff: str):
+    @function
+    async def suggest2(
+        self,
+        source: Annotated[dagger.Directory, DefaultPath("/")],
+        repository: Annotated[str, Doc("The owner and repository name")],
+        ref: Annotated[str, Doc("The ref name")],
+        token: Annotated[Secret, Doc("GitHub API token")],
+    ) -> str:
+
+
+        diff = """diff --git a/repositories.py b/repositories.py
+index f7c2ce0..9ba318e 100644
+--- a/repositories.py
++++ b/repositories.py
+@@ -4,7 +4,7 @@ from . import models
+
+# Create a new book
+def create_book(db: Session, book: models.BookIn):
+-    db_book = models.Book(title=book.title, author=book.author)
++    db_book = models.Book(title=book.title, author=book.author, price=book.price)
+    db.add(db_book)
+    db.commit()
+    db.refresh(db_book)
+@@ -27,6 +27,7 @@ def update_book(db: Session, book_id: int, book: models.BookIn):
+    if db_book:
+        db_book.title = book.title
+        db_book.author = book.author
++        db_book.price = book.price
+        db.commit()
+        db.refresh(db_book)
+        return db_book
+"""
+        changes = self.parse_git_diff(diff)
+        print(changes)
+
+        await dag.workspace(source=source, token=token).suggest(repository, ref, changes)
+
+    def parse_git_diff(self, diff_text: str) -> List[Change]:
         changes = []
+        file_pattern = re.compile(r'diff --git a/(.*?) b/.*')
+        hunk_pattern = re.compile(r'@@ -(\d+),?\d* \+(\d+),?\d* @@')
+
+        lines = diff_text.split('\n')
         current_file = None
-        line_number = 0
+        current_line_number = None
+        old_line_number = None
 
-        # Split the diff into sections based on file changes
-        file_changes = re.split(r"^\+\+\+ b/(.+)$", diff, flags=re.MULTILINE)
+        for i, line in enumerate(lines):
+            file_match = file_pattern.match(line)
+            if file_match:
+                current_file = file_match.group(1)
 
-        for section in file_changes:
-            if section.strip() == '':
-                continue
+            hunk_match = hunk_pattern.match(line)
+            if hunk_match:
+                old_line_number = int(hunk_match.group(1))
+                current_line_number = int(hunk_match.group(2))
 
-            lines = section.strip().splitlines()
-            if lines:
-                # The file name is in the second part after "+++" header
-                file_path = lines[0].split()[1]
-                current_file = file_path
-                line_number = 0  # Reset line number for each file
-
-                # Process the diff for this particular file
-                for line in lines[1:]:
-                    line_number += 1
-                    if line.startswith('+'):
-                        # This is an added line
-                        changes.append(Change(file_path=current_file, change_type='added', line_number=line_number, content=line[1:]))
-                    elif line.startswith('-'):
-                        # This is a removed line
-                        changes.append(Change(file_path=current_file, change_type='removed', line_number=line_number, content=line[1:]))
-                    # Modified lines are generally represented by both a '+' and a '-' in the diff, so handle them accordingly.
-                    elif line.startswith(' '):
-                        # This is an unchanged line (context line), you can also track these if necessary.
-                        pass
+            if line.startswith('-') and not line.startswith('---'):
+                old_line = line[1:].strip()
+                new_line = lines[i + 1][1:].strip() if i + 1 < len(lines) and lines[i + 1].startswith('+') else None
+                if new_line:
+                    changes.append(Change(current_file, current_line_number, old_line, new_line))
+                    current_line_number += 1
+            elif line.startswith('+') and not line.startswith('+++'):
+                if i == 0 or not lines[i - 1].startswith('-'):
+                    new_line = line[1:].strip()
+                    changes.append(Change(current_file, current_line_number, None, new_line))
+                    current_line_number += 1
 
         return changes
