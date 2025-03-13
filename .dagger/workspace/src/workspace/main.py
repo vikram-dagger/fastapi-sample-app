@@ -1,5 +1,10 @@
 from typing import Annotated, Self
 from datetime import datetime
+
+# for suggestions
+import requests
+import json
+
 from dagger import Container, dag, Directory, DefaultPath, Doc, Secret, function, object_type, ReturnType
 import re
 
@@ -107,7 +112,46 @@ class Workspace:
           .create(body)
         )
 
+    @function
+    async def suggest(
+        self,
+        repository: Annotated[str, Doc("The owner and repository name")],
+        ref: Annotated[str, Doc("The ref name")],
+        changes: Annotated[str, Doc("Array of change objects")],
+    ) -> str:
+        """Adds suggestions to the PR"""
+        repository_url = f"https://github.com/{repository}"
+        pr_number = int(re.search(r"(\d+)", ref).group(1))
+        api_url = f"https://api.github.com/repos/{repository_url}/pulls/{pr_number}/reviews"
 
+        headers = {
+            "Authorization": f"token {self.token}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+
+        review_body = {
+            "event": "REQUEST_CHANGES",
+            "comments": []
+        }
+
+        # Create the suggestions (comments)
+        for change in changes:
+            # Formatting each change into GitHub suggestion comment format
+            suggestion = {
+                "path": change.file_path,
+                "position": change.line_number,
+                "body": f"```suggestion\n{change.content}\n```"
+            }
+            review_body["comments"].append(suggestion)
+
+        # Send the request to GitHub API
+        response = requests.post(api_url, headers=headers, data=json.dumps(review_body))
+
+        if response.status_code == 201:
+            print(f"Successfully created review suggestions for PR #{pr_number}.")
+        else:
+            print(f"Failed to create review suggestions: {response.status_code}")
+            print(response.json())
 
     @function
     def container(
