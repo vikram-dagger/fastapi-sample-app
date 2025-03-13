@@ -120,6 +120,7 @@ class CodeSuggestion:
     suggestion: List[str]
     position: int  # Position in the diff (relative to the hunk header)
     diff_hunk: str  # The diff hunk context
+    is_in_diff: bool = False
 
 
 @object_type
@@ -229,6 +230,9 @@ class Workspace:
         added_line_numbers = []
         current_diff_hunk = []
 
+        # Keep track of which lines were actually modified in the diff
+        modified_files = {}  # file -> set of modified line numbers
+
         # Regular expressions for file and hunk detection
         file_regex = re.compile(r"^diff --git a/.*? b/(.*?)$")
         hunk_regex = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@.*$")
@@ -259,6 +263,8 @@ class Workspace:
                     added_line_numbers = []
 
                 current_file = file_match.group(1)
+                if current_file not in modified_files:
+                    modified_files[current_file] = set()
                 current_diff_hunk = []
                 i += 1
                 continue
@@ -295,6 +301,16 @@ class Workspace:
             # Track position for each line after a hunk header
             if position_in_hunk > 0:
                 position_in_hunk += 1
+
+            # Track modified lines
+            if current_file and position_in_hunk > 0:
+                if line.startswith("+") and not line.startswith("+++"):
+                    # This is an added or modified line
+                    line_number = current_hunk_start_line + (position_in_hunk - 2)
+                    modified_files[current_file].add(line_number)
+                elif line.startswith("-") and not line.startswith("---"):
+                    # This is a removed line
+                    pass  # We don't need to track removed lines for suggestions
 
             # Collect added lines (additions)
             if line.startswith("+") and not line.startswith("+++"):
@@ -345,6 +361,13 @@ class Workspace:
                 )
             )
 
+        # Store the modified files information for validation
+        for suggestion in suggestions:
+            suggestion.is_in_diff = (
+                suggestion.file in modified_files
+                and suggestion.line in modified_files[suggestion.file]
+            )
+
         return suggestions
 
     @function
@@ -382,9 +405,29 @@ class Workspace:
         # Process each suggestion individually
         successful_suggestions = 0
         fallback_suggestions = 0
+        skipped_suggestions = 0
 
         for i, suggestion in enumerate(suggestions):
             suggestion_text = "\n".join(suggestion.suggestion)
+
+            # Check if the suggestion is for a line that's part of the diff
+            if hasattr(suggestion, "is_in_diff") and not suggestion.is_in_diff:
+                print(
+                    f"Skipping suggestion {i + 1}/{len(suggestions)} for file {suggestion.file}, line {suggestion.line} - not part of the diff"
+                )
+                # Always fall back to a regular comment for suggestions not in the diff
+                try:
+                    pr = repo.get_pull(pr_number)
+                    pr.create_issue_comment(
+                        f"Suggestion for `{suggestion.file}` line {suggestion.line} (not in diff):\n```suggestion\n{suggestion_text}\n```"
+                    )
+                    fallback_suggestions += 1
+                    print(f"Created fallback issue comment for {suggestion.file}")
+                except Exception as e2:
+                    print(f"Error creating fallback comment: {e2}")
+                skipped_suggestions += 1
+                continue
+
             print(
                 f"Processing suggestion {i + 1}/{len(suggestions)} for file {suggestion.file}, line {suggestion.line}"
             )
@@ -415,7 +458,7 @@ class Workspace:
                 except Exception as e2:
                     print(f"Error creating fallback comment: {e2}")
 
-        return f"Posted {successful_suggestions} suggestions directly, {fallback_suggestions} as regular comments"
+        return f"Posted {successful_suggestions} suggestions directly, {fallback_suggestions} as regular comments, skipped {skipped_suggestions} suggestions not in diff"
 
     @function
     async def comment(
