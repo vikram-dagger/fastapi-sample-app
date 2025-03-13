@@ -1,19 +1,18 @@
 from typing import Annotated
 
 import dagger
-from dagger import DefaultPath, Secret, Doc, dag, function, object_type
+from dagger import DefaultPath, Doc, Secret, dag, function, object_type
 
 
 @object_type
 class Agent:
     @function
     def heal(
-        self,
-        source: Annotated[dagger.Directory, DefaultPath("/")]
+        self, source: Annotated[dagger.Directory, DefaultPath("/")]
     ) -> dagger.Directory:
         before = dag.workspace(source=source)
 
-        prompt = f"""
+        prompt = """
         - You are an expert in the Python FastAPI framework.
         - You are also an expert in Pydantic, SQLAlchemy and the Repository pattern.
         - The tests are failing
@@ -27,12 +26,7 @@ class Agent:
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
         """
-        after = (
-            dag.llm()
-            .with_workspace(before)
-            .with_prompt(prompt)
-            .workspace()
-        )
+        after = dag.llm().with_workspace(before).with_prompt(prompt).workspace()
 
         return after.container().directory(".")
 
@@ -42,12 +36,12 @@ class Agent:
         source: Annotated[dagger.Directory, DefaultPath("/")],
         repository: Annotated[str, Doc("The owner and repository name")],
         ref: Annotated[str, Doc("The ref name")],
+        commit: Annotated[str, Doc("The commit SHA")],
         token: Annotated[Secret, Doc("GitHub API token")],
     ) -> str:
-        #print(f"""{repository} {ref} {token}""")
         before = dag.workspace(source=source, token=token)
 
-        prompt = f"""
+        prompt = """
         - You are an expert in the Python FastAPI framework.
         - You are also an expert in Pydantic, SQLAlchemy and the Repository pattern.
         - The tests are failing
@@ -61,22 +55,28 @@ class Agent:
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
         """
-        work = (
-            dag.llm()
-            .with_workspace(before)
-            .with_prompt(prompt)
-        )
+        work = dag.llm().with_workspace(before).with_prompt(prompt)
 
-        diff = await work.workspace().diff()
+        # Get the diff from workspace changes
+        diff_text = await work.workspace().diff()
 
+        # Store the workspace state
+        workspace_state = work.workspace()
+
+        # Post suggestions as review comments
+        await workspace_state.suggest(repository, commit, diff_text)
+
+        # Generate summary for the main PR comment
         summary = await (
             dag.llm()
-            .with_workspace(before)
-            .with_prompt_var("diff", diff)
-            .with_prompt("Read the code in the workspace. Read the code diff below. Treat the changes made to the workspace as a proposal and summarize them. Include your proposal plus the code diff in your final response. <diff>$diff</diff>")
+            .with_workspace(workspace_state)  # Use the same workspace state
+            .with_prompt_var("diff", diff_text)
+            .with_prompt(
+                "Read the code in the workspace. Read the code diff below. Treat the changes made to the workspace as a proposal and summarize them. Include your proposal plus the code diff in your final response. <diff>$diff</diff>"
+            )
             .last_reply()
         )
 
-        # await after.with_prompt("After all tests pass, you are done. Summarize your changes. Use the diff tool from the workspace to obtain a list of all the changes you made. Include that diff in your summary.").last_reply()
-
-        return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
+        return await dag.workspace(source=source, token=token).comment(
+            repository, ref, summary
+        )
