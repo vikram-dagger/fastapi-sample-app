@@ -1,7 +1,9 @@
+import base64
 import re
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Annotated, Dict, List, Self
+from typing import Annotated, Dict, List, Optional, Self
 
 from dagger import (
     Container,
@@ -14,7 +16,7 @@ from dagger import (
     function,
     object_type,
 )
-from github import Commit, Github
+from github import Commit, Github, GithubException, InputGitTreeElement
 
 
 class GitHubClient:
@@ -42,6 +44,157 @@ class GitHubClient:
             if pr.get_commits().reversed[0].sha == commit:
                 return pr.number
         raise ValueError(f"No pull requests found for commit {commit}")
+
+    async def create_branch_from_pr(
+        self, repository: str, pr_number: int, branch_name: Optional[str] = None
+    ) -> str:
+        """Create a new branch from the head of a PR
+
+        Args:
+            repository: Full repository name (e.g., "owner/repo")
+            pr_number: Pull request number
+            branch_name: Name for the new branch (optional, will generate if not provided)
+
+        Returns:
+            The name of the created branch
+        """
+        if not self.github:
+            await self.init()
+
+        repo = self.github.get_repo(repository)
+        pr = repo.get_pull(pr_number)
+
+        # Get the head commit SHA
+        head_sha = pr.head.sha
+
+        # Generate a branch name if not provided
+        if not branch_name:
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            branch_name = f"llm-fix-{timestamp}-{str(uuid.uuid4())[:8]}"
+
+        # Create a new branch at the head commit
+        try:
+            repo.create_git_ref(f"refs/heads/{branch_name}", head_sha)
+            print(f"Created branch {branch_name} from PR #{pr_number}")
+            return branch_name
+        except GithubException as e:
+            print(f"Error creating branch: {e}")
+            raise
+
+    async def apply_file_changes(
+        self,
+        repository: str,
+        branch_name: str,
+        file_changes: Dict[str, str],
+        commit_message: str,
+    ) -> str:
+        """Apply changes to files and commit them to a branch
+
+        Args:
+            repository: Full repository name (e.g., "owner/repo")
+            branch_name: Name of the branch to commit to
+            file_changes: Dictionary mapping file paths to their new content
+            commit_message: Commit message
+
+        Returns:
+            The SHA of the created commit
+        """
+        if not self.github:
+            await self.init()
+
+        repo = self.github.get_repo(repository)
+
+        # Get the reference to the branch
+        ref = repo.get_git_ref(f"refs/heads/{branch_name}")
+
+        # Get the latest commit on the branch
+        latest_commit = repo.get_commit(ref.object.sha)
+        base_tree = latest_commit.commit.tree
+
+        # Create tree elements for each file change
+        tree_elements = []
+        for file_path, content in file_changes.items():
+            try:
+                # Check if file exists
+                existing_content = repo.get_contents(file_path, ref=branch_name)
+                mode = existing_content.mode
+            except GithubException:
+                # File doesn't exist, use default mode for new file
+                mode = "100644"  # Regular file
+
+            # Create a tree element for the file
+            element = InputGitTreeElement(
+                path=file_path, mode=mode, type="blob", content=content
+            )
+            tree_elements.append(element)
+
+        # Create a new tree with the changes
+        new_tree = repo.create_git_tree(tree_elements, base_tree)
+
+        # Create a commit with the new tree
+        parent = repo.get_git_commit(latest_commit.sha)
+        commit = repo.create_git_commit(commit_message, new_tree, [parent])
+
+        # Update the reference to point to the new commit
+        ref.edit(commit.sha)
+
+        print(f"Applied changes to {len(file_changes)} files in branch {branch_name}")
+        return commit.sha
+
+    async def create_pr_from_branch(
+        self, repository: str, base_branch: str, head_branch: str, title: str, body: str
+    ) -> int:
+        """Create a new PR from a branch targeting another branch
+
+        Args:
+            repository: Full repository name (e.g., "owner/repo")
+            base_branch: The target branch for the PR
+            head_branch: The source branch for the PR
+            title: PR title
+            body: PR description
+
+        Returns:
+            The number of the created PR
+        """
+        if not self.github:
+            await self.init()
+
+        repo = self.github.get_repo(repository)
+
+        # Create the PR
+        pr = repo.create_pull(
+            title=title, body=body, base=base_branch, head=head_branch
+        )
+
+        print(f"Created PR #{pr.number} from {head_branch} to {base_branch}")
+        return pr.number
+
+    async def get_file_content(self, repository: str, file_path: str, ref: str) -> str:
+        """Get the content of a file from a repository
+
+        Args:
+            repository: Full repository name (e.g., "owner/repo")
+            file_path: Path to the file
+            ref: Branch, tag, or commit SHA
+
+        Returns:
+            The content of the file
+        """
+        if not self.github:
+            await self.init()
+
+        repo = self.github.get_repo(repository)
+
+        try:
+            content = repo.get_contents(file_path, ref=ref)
+            if isinstance(content, list):
+                raise ValueError(f"{file_path} is a directory, not a file")
+
+            # Decode content from base64
+            return base64.b64decode(content.content).decode("utf-8")
+        except GithubException as e:
+            print(f"Error getting file content: {e}")
+            raise
 
     async def create_review(
         self,
@@ -417,7 +570,7 @@ class Workspace:
         commit: Annotated[str, Doc("The commit SHA")],
         diff_text: Annotated[str, Doc("The diff text to parse for suggestions")],
     ) -> str:
-        """Posts code suggestions as inline comments on a PR
+        """Posts code suggestions as inline comments on a PR or creates a new PR for suggestions outside the diff
 
         Args:
             repository: Full repository name (e.g., "owner/repo")
@@ -436,46 +589,41 @@ class Workspace:
         # Get the repository and commit objects
         repo = github.github.get_repo(repository)
         commit_obj = repo.get_commit(commit)
+        pr = repo.get_pull(pr_number)
 
         # Parse the diff into suggestions
         suggestions = self.parse_diff(diff_text)
         if not suggestions:
             return "No suggestions to make"
 
-        # Process each suggestion individually
+        # Separate suggestions into those in the diff and those outside the diff
+        in_diff_suggestions = []
+        out_of_diff_suggestions = []
+
+        for suggestion in suggestions:
+            if hasattr(suggestion, "is_in_diff") and suggestion.is_in_diff:
+                in_diff_suggestions.append(suggestion)
+            else:
+                out_of_diff_suggestions.append(suggestion)
+
+        print(
+            f"Found {len(in_diff_suggestions)} suggestions in diff and {len(out_of_diff_suggestions)} suggestions outside diff"
+        )
+
+        # Process suggestions in the diff as review comments
         successful_suggestions = 0
         fallback_suggestions = 0
-        skipped_suggestions = 0
 
-        for i, suggestion in enumerate(suggestions):
+        for i, suggestion in enumerate(in_diff_suggestions):
             suggestion_text = "\n".join(suggestion.suggestion)
 
-            # Check if the suggestion is for a line that's part of the diff
-            if hasattr(suggestion, "is_in_diff") and not suggestion.is_in_diff:
-                print(
-                    f"Skipping suggestion {i + 1}/{len(suggestions)} for file {suggestion.file}, line {suggestion.line} - not part of the diff"
-                )
-                # Always fall back to a regular comment for suggestions not in the diff
-                try:
-                    pr = repo.get_pull(pr_number)
-                    pr.create_issue_comment(
-                        f"Suggestion for `{suggestion.file}` line {suggestion.line} (not in diff):\n```suggestion\n{suggestion_text}\n```"
-                    )
-                    fallback_suggestions += 1
-                    print(f"Created fallback issue comment for {suggestion.file}")
-                except Exception as e2:
-                    print(f"Error creating fallback comment: {e2}")
-                skipped_suggestions += 1
-                continue
-
             print(
-                f"Processing suggestion {i + 1}/{len(suggestions)} for file {suggestion.file}, line {suggestion.line}"
+                f"Processing in-diff suggestion {i + 1}/{len(in_diff_suggestions)} for file {suggestion.file}, line {suggestion.line}"
             )
 
             # Try to create a review comment
             try:
                 # Create individual review comments
-                pr = repo.get_pull(pr_number)
                 pr.create_review_comment(
                     body=f"```suggestion\n{suggestion_text}\n```",
                     commit=commit_obj,
@@ -498,7 +646,121 @@ class Workspace:
                 except Exception as e2:
                     print(f"Error creating fallback comment: {e2}")
 
-        return f"Posted {successful_suggestions} suggestions directly, {fallback_suggestions} as regular comments, skipped {skipped_suggestions} suggestions not in diff"
+        # Process suggestions outside the diff by creating a new PR
+        created_prs = []
+
+        if out_of_diff_suggestions:
+            # Group suggestions by file
+            file_to_suggestions = {}
+            for suggestion in out_of_diff_suggestions:
+                if suggestion.file not in file_to_suggestions:
+                    file_to_suggestions[suggestion.file] = []
+                file_to_suggestions[suggestion.file].append(suggestion)
+
+            # Create a new branch from the PR head
+            branch_name = await github.create_branch_from_pr(repository, pr_number)
+
+            # For each file with suggestions, apply the changes
+            for file_path, file_suggestions in file_to_suggestions.items():
+                try:
+                    # Get the current content of the file
+                    current_content = await github.get_file_content(
+                        repository, file_path, branch_name
+                    )
+
+                    # Apply all suggestions to the file content
+                    new_content = current_content
+                    lines = new_content.splitlines()
+
+                    # Sort suggestions by line number in descending order to avoid offset issues
+                    file_suggestions.sort(key=lambda s: s.line, reverse=True)
+
+                    for suggestion in file_suggestions:
+                        # Convert 1-indexed line to 0-indexed
+                        line_idx = suggestion.line - 1
+
+                        # Replace the line with the suggestion
+                        if 0 <= line_idx < len(lines):
+                            # Remove the original line and insert the suggestion lines
+                            lines.pop(line_idx)
+                            for i, suggestion_line in enumerate(
+                                reversed(suggestion.suggestion)
+                            ):
+                                lines.insert(line_idx, suggestion_line)
+
+                    # Join the lines back into a string
+                    new_content = "\n".join(lines)
+
+                    # Apply the changes to the branch
+                    file_changes = {file_path: new_content}
+                    commit_message = f"Apply LLM suggestions to {file_path}"
+                    await github.apply_file_changes(
+                        repository, branch_name, file_changes, commit_message
+                    )
+
+                except Exception as e:
+                    print(f"Error applying changes to {file_path}: {e}")
+
+            # Create a PR with the changes
+            pr_title = f"LLM suggested fixes for PR #{pr_number}"
+            pr_body = (
+                f"This PR contains fixes suggested by an LLM that couldn't be applied directly to PR #{pr_number} "
+                f"because they affect lines outside the original diff.\n\n"
+                f"Original PR: #{pr_number}\n"
+                f"Generated by: AI assistant\n\n"
+                f"## Suggestions applied:\n"
+            )
+
+            # Add details about each suggestion to the PR body
+            for file_path, file_suggestions in file_to_suggestions.items():
+                pr_body += f"\n### {file_path}\n"
+                for suggestion in file_suggestions:
+                    suggestion_text = "\n".join(suggestion.suggestion)
+                    pr_body += (
+                        f"- Line {suggestion.line}:\n```\n{suggestion_text}\n```\n"
+                    )
+
+            # Create the PR
+            try:
+                # Get the base branch of the original PR
+                base_branch = pr.base.ref
+
+                # Create a new PR targeting the base branch of the original PR
+                new_pr_number = await github.create_pr_from_branch(
+                    repository, base_branch, branch_name, pr_title, pr_body
+                )
+
+                # Add a comment to the original PR linking to the new PR
+                pr.create_issue_comment(
+                    f"I've created a new PR with suggested fixes that couldn't be applied directly to this PR: #{new_pr_number}"
+                )
+
+                created_prs.append(new_pr_number)
+            except Exception as e:
+                print(f"Error creating PR: {e}")
+
+                # Add a comment to the original PR with the branch name
+                try:
+                    pr.create_issue_comment(
+                        f"I've created a branch with suggested fixes that couldn't be applied directly to this PR: `{branch_name}`\n"
+                        f"However, I couldn't create a PR due to an error: {str(e)}"
+                    )
+                except Exception as e2:
+                    print(f"Error creating comment: {e2}")
+
+        # Build the result message
+        result = (
+            f"Posted {successful_suggestions} suggestions directly as review comments"
+        )
+        if fallback_suggestions > 0:
+            result += f", {fallback_suggestions} as regular comments"
+
+        if created_prs:
+            result += f". Created {len(created_prs)} PR(s) for suggestions outside the diff: {', '.join([f'#{pr_num}' for pr_num in created_prs])}"
+        elif out_of_diff_suggestions:
+            result += f". Created branch '{branch_name}' for {len(out_of_diff_suggestions)} suggestions outside the diff"
+
+        return result
 
     @function
     async def comment(
