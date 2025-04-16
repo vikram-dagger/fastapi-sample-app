@@ -47,11 +47,10 @@ class Agent:
         ref: Annotated[str, Doc("The ref name")],
         token: Annotated[Secret, Doc("GitHub API token")],
     ) -> str:
-        #print(f"""{repository} {ref} {token}""")
         environment = (
             dag.env()
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
-            .with_string_output("diff", "the code diff after making changes")
+            #.with_string_output("diff", "the code diff after making changes")
         )
 
         prompt = f"""
@@ -67,6 +66,7 @@ class Agent:
         - Do not assume that errors are related to database connectivity or initialization
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
+        - Once done, return the diff using the diff tool
         """
         work = (
             dag.llm()
@@ -74,13 +74,13 @@ class Agent:
             .with_prompt(prompt)
         )
 
-        diff = await work.env().output("diff").as_string()
+        diff = await work.last_reply()
 
         environment = (
             dag.env()
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
             .with_string_input("diff", diff, "the code diff")
-            .with_string_output("proposal", "the summary proposal including the diff")
+            #.with_string_output("proposal", "the summary proposal including the diff")
         )
 
         work = (
@@ -89,6 +89,5 @@ class Agent:
             .with_prompt("Read the code in the workspace. Read the code diff in $diff. Summarize the changes as a proposal for the reader. Include the proposal plus the code diff in your final response.")
         )
 
-        summary = await work.env().output("proposal").as_string()
-
+        summary = await work.last_reply()
         return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
