@@ -11,7 +11,11 @@ class Agent:
         self,
         source: Annotated[dagger.Directory, DefaultPath("/")]
     ) -> dagger.Directory:
-        before = dag.workspace(source=source)
+        environment = (
+            dag.env()
+            .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
+            .with_directory_output("after", "the current directory with the updated code")
+        )
 
         prompt = f"""
         - You are an expert in the Python FastAPI framework.
@@ -27,14 +31,13 @@ class Agent:
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
         """
-        after = (
+        work = (
             dag.llm()
-            .with_workspace(before)
+            .with_env(environment)
             .with_prompt(prompt)
-            .workspace()
         )
 
-        return after.container().directory(".")
+        return work.env().output("after").as_directory()
 
     @function
     async def diagnose(
