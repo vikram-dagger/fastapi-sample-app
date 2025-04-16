@@ -48,7 +48,11 @@ class Agent:
         token: Annotated[Secret, Doc("GitHub API token")],
     ) -> str:
         #print(f"""{repository} {ref} {token}""")
-        before = dag.workspace(source=source, token=token)
+        environment = (
+            dag.env()
+            .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
+            .with_string_output("diff", "the code diff after making changes")
+        )
 
         prompt = f"""
         - You are an expert in the Python FastAPI framework.
@@ -66,18 +70,25 @@ class Agent:
         """
         work = (
             dag.llm()
-            .with_workspace(before)
+            .with_env(environment)
             .with_prompt(prompt)
         )
 
-        diff = await work.workspace().diff()
+        diff = await work.env().output("diff").as_string()
 
-        summary = await (
-            dag.llm()
-            .with_workspace(before)
-            .with_prompt_var("diff", diff)
-            .with_prompt("Read the code in the workspace. Read the code diff below. Summarize the changes as a proposal for the reader. Include the proposal plus the code diff in your final response. <diff>$diff</diff>")
-            .last_reply()
+        environment = (
+            dag.env()
+            .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
+            .with_string_input("diff", diff, "the code diff")
+            .with_string_output("proposal", "the summary proposal including the diff")
         )
+
+        work = (
+            dag.llm()
+            .with_env(environment)
+            .with_prompt("Read the code in the workspace. Read the code diff in $diff. Summarize the changes as a proposal for the reader. Include the proposal plus the code diff in your final response.")
+        )
+
+        summary = await work.env().output("proposal").as_string()
 
         return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
