@@ -86,7 +86,7 @@ class Agent:
         work = (
             dag.llm()
             .with_env(environment)
-            .with_prompt("Read the code in the workspace. Read the code diff in $diff. Summarize the changes as a proposal for the reader. Include the proposal plus the code diff in your final response.")
+            .with_prompt("Read the code in the workspace. Read the code diff in $diff. Summarize the changes as a proposal for the reader. Include the proposal plus the code diff in $diff in your final response.")
         )
 
         summary = await work.last_reply()

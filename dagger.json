@@ -1,6 +1,6 @@
 {
   "name": "agent",
-  "engineVersion": "v0.17.0-llm.4",
+  "engineVersion": "v0.18.5",
   "sdk": {
     "source": "python"
   },
