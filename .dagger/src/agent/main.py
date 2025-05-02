@@ -68,7 +68,7 @@ class Agent:
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
         - Once done, return the modified workspace along with a clearly written list of suggested changes
-        - Describe each suggested change as an action the reader could take to resolve similar issues, rather than a log of what was changed.
+        - Remember to describe each change as an action the reader could take, rather than a log of what was changed.
         """
         work = (
             dag.llm()
@@ -95,5 +95,5 @@ class Agent:
             .stdout()
         )
 
-        comment = f"Suggested corrections:\n\n{summary}\n\nDiff:\n\n```{diff}```"
+        comment = f"{summary}\n\nDiff:\n\n```{diff}```"
         return await dag.workspace(source=source, token=token).comment(repository, ref, comment)
