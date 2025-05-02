@@ -95,5 +95,5 @@ class Agent:
             .stdout()
         )
 
-        comment = f"{summary}\n\nHere is a diff:\n\n```{diff}```"
+        comment = f"Suggested corrections:\n\n{summary}\n\nDiff:\n\n```{diff}```"
         return await dag.workspace(source=source, token=token).comment(repository, ref, comment)
