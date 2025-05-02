@@ -43,9 +43,9 @@ class Agent:
     async def diagnose(
         self,
         source: Annotated[dagger.Directory, DefaultPath("/")],
-        #repository: Annotated[str, Doc("The owner and repository name")],
-        #ref: Annotated[str, Doc("The ref name")],
-        #token: Annotated[Secret, Doc("GitHub API token")],
+        repository: Annotated[str, Doc("The owner and repository name")],
+        ref: Annotated[str, Doc("The ref name")],
+        token: Annotated[Secret, Doc("GitHub API token")],
     ) -> str:
         environment = (
             dag.env()
@@ -76,7 +76,7 @@ class Agent:
             .with_prompt(prompt)
         )
 
-        summary = (
+        summary = await (
             work
             .env()
             .output("summary")
@@ -87,8 +87,8 @@ class Agent:
             work
             .env()
             .output("after")
-            .as_container()
-
+            .as_workspace()
+            .container()
             .with_exec(["git", "diff"])
             .stdout()
         )
@@ -110,7 +110,8 @@ class Agent:
         #)
 
         #summary = await work.last_reply()
-        #return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
+        comment = f"diff: {diff}\n\nsummary: {summary}"
+        return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
 
-        print(f"diff: {diff}\n\nsummary: {summary}")
-        return f"diff: {diff}\n\nsummary: {summary}"
+        #print(f"diff: {diff}\n\nsummary: {summary}")
+        #return f"diff: {diff}\n\nsummary: {summary}"
