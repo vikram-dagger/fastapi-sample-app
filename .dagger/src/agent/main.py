@@ -68,7 +68,7 @@ class Agent:
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
         - Once done, return the modified workspace and a summary of the changes made
-        - The summary should be a short explanation of the changes made
+        - The summary should be written as a proposal explaining the changes to be made
         """
         work = (
             dag.llm()
@@ -111,7 +111,7 @@ class Agent:
 
         #summary = await work.last_reply()
         comment = f"diff: {diff}\n\nsummary: {summary}"
-        return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
+        return await dag.workspace(source=source, token=token).comment(repository, ref, comment)
 
         #print(f"diff: {diff}\n\nsummary: {summary}")
         #return f"diff: {diff}\n\nsummary: {summary}"
