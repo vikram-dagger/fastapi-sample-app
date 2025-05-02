@@ -51,7 +51,7 @@ class Agent:
             dag.env()
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
             .with_workspace_output("after", "the workspace with the modified code")
-            .with_string_output("summary", "proposed list of changes for the tests to pass")
+            .with_string_output("summary", "list of changes for the tests to pass")
         )
 
         prompt = f"""
@@ -67,7 +67,8 @@ class Agent:
         - Do not assume that errors are related to database connectivity or initialization
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
-        - Once done, return the modified workspace and a proposed list of changes
+        - Once done, return the modified workspace and a "list of changes"
+        - Write the list of changes as a proposal for the reader to execute
         """
         work = (
             dag.llm()
@@ -75,6 +76,7 @@ class Agent:
             .with_prompt(prompt)
         )
 
+        # list of changes
         summary = await (
             work
             .env()
@@ -82,6 +84,7 @@ class Agent:
             .as_string()
         )
 
+        # diff of the changes
         diff = await (
             work
             .env()
@@ -92,25 +95,5 @@ class Agent:
             .stdout()
         )
 
-
-        #diff = await work.last_reply()
-
-        #environment = (
-        #    dag.env()
-        #    .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
-        #    .with_string_input("diff", diff, "the code diff")
-        #    #.with_string_output("proposal", "the summary proposal including the diff")
-        #)
-
-        #work = (
-        #    dag.llm()
-        #    .with_env(environment)
-        #    .with_prompt("Read the code in the workspace. Read the code diff in $diff. Summarize the changes as a proposal for the reader. Include the proposal plus the code diff in $diff in your final response.")
-        #)
-
-        #summary = await work.last_reply()
-        comment = f"{summary}\n\n```{diff}```"
+        comment = f"{summary}\n\nHere is a diff\n\n```{diff}```"
         return await dag.workspace(source=source, token=token).comment(repository, ref, comment)
-
-        #print(f"diff: {diff}\n\nsummary: {summary}")
-        #return f"diff: {diff}\n\nsummary: {summary}"
