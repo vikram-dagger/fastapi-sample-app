@@ -67,7 +67,8 @@ class Agent:
         - Do not assume that errors are related to database connectivity or initialization
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
-        - Once done, return the modified workspace and the list of changes as suggestions
+        - Once done, return the modified workspace along with a clearly written list of suggested changes
+        - Describe each suggested change as an action the reader could take to resolve similar issues, rather than a log of what was changed.
         """
         work = (
             dag.llm()
