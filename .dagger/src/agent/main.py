@@ -51,7 +51,7 @@ class Agent:
             dag.env()
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
             .with_workspace_output("after", "the workspace with the modified code")
-            .with_string_output("summary", "list of changes for the tests to pass")
+            .with_string_output("summary", "summary of changes for the tests to pass")
         )
 
         prompt = f"""
@@ -67,8 +67,7 @@ class Agent:
         - Do not assume that errors are related to database connectivity or initialization
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
-        - Once done, return the modified workspace and a "list of changes"
-        - Write the list of changes as a proposal for the reader to execute
+        - Once done, return the modified workspace and the list of changes as suggestions
         """
         work = (
             dag.llm()
@@ -95,5 +94,5 @@ class Agent:
             .stdout()
         )
 
-        comment = f"{summary}\n\nHere is a diff\n\n```{diff}```"
+        comment = f"{summary}\n\nHere is a diff:\n\n```{diff}```"
         return await dag.workspace(source=source, token=token).comment(repository, ref, comment)
