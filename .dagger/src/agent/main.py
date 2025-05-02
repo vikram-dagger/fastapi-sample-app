@@ -43,14 +43,15 @@ class Agent:
     async def diagnose(
         self,
         source: Annotated[dagger.Directory, DefaultPath("/")],
-        repository: Annotated[str, Doc("The owner and repository name")],
-        ref: Annotated[str, Doc("The ref name")],
-        token: Annotated[Secret, Doc("GitHub API token")],
+        #repository: Annotated[str, Doc("The owner and repository name")],
+        #ref: Annotated[str, Doc("The ref name")],
+        #token: Annotated[Secret, Doc("GitHub API token")],
     ) -> str:
         environment = (
             dag.env()
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
-            #.with_string_output("diff", "the code diff after making changes")
+            .with_workspace_output("after", "the workspace with the modified code")
+            .with_string_output("summary", "explanation of the changes made")
         )
 
         prompt = f"""
@@ -66,7 +67,8 @@ class Agent:
         - Do not assume that errors are related to database connectivity or initialization
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
-        - Once done, return the diff using the diff tool
+        - Once done, return the modified workspace and a summary of the changes made
+        - The summary should be a short explanation of the changes made
         """
         work = (
             dag.llm()
@@ -74,20 +76,41 @@ class Agent:
             .with_prompt(prompt)
         )
 
-        diff = await work.last_reply()
-
-        environment = (
-            dag.env()
-            .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
-            .with_string_input("diff", diff, "the code diff")
-            #.with_string_output("proposal", "the summary proposal including the diff")
+        summary = (
+            work
+            .env()
+            .output("summary")
+            .as_string()
         )
 
-        work = (
-            dag.llm()
-            .with_env(environment)
-            .with_prompt("Read the code in the workspace. Read the code diff in $diff. Summarize the changes as a proposal for the reader. Include the proposal plus the code diff in $diff in your final response.")
+        diff = await (
+            work
+            .env()
+            .output("after")
+            .as_container()
+
+            .with_exec(["git", "diff"])
+            .stdout()
         )
 
-        summary = await work.last_reply()
-        return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
+
+        #diff = await work.last_reply()
+
+        #environment = (
+        #    dag.env()
+        #    .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
+        #    .with_string_input("diff", diff, "the code diff")
+        #    #.with_string_output("proposal", "the summary proposal including the diff")
+        #)
+
+        #work = (
+        #    dag.llm()
+        #    .with_env(environment)
+        #    .with_prompt("Read the code in the workspace. Read the code diff in $diff. Summarize the changes as a proposal for the reader. Include the proposal plus the code diff in $diff in your final response.")
+        #)
+
+        #summary = await work.last_reply()
+        #return await dag.workspace(source=source, token=token).comment(repository, ref, summary)
+
+        print(f"diff: {diff}\n\nsummary: {summary}")
+        return f"diff: {diff}\n\nsummary: {summary}"

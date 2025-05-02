@@ -83,17 +83,17 @@ class Workspace:
             raise Exception(f"Tests failed. \nError: {stderr} \nOutput: {stdout}")
         return await cmd.stdout()
 
-    @function
-    async def diff(
-        self
-    ) -> str:
-        """Returns the changes in the workspace so far"""
-        source = dag.container().from_("alpine/git").with_workdir("/app").with_directory("/app", self.source)
-        # make sure source is a git directory
-        if ".git" not in await self.source.entries():
-            source = source.with_exec(["git", "init"]).with_exec(["git", "add", "."]).with_exec(["git", "commit", "-m", "'initial'"])
-        # return the git diff of the changes in the workspace
-        return await source.with_directory(".", self.ctr.directory(".")).with_exec(["git", "diff"]).stdout()
+    #@function
+    #async def diff(
+    #    self
+    #) -> str:
+     #   """Returns the changes in the workspace so far"""
+     #   source = dag.container().from_("alpine/git").with_workdir("/app").with_directory("/app", self.source)
+     #   # make sure source is a git directory
+     #   if ".git" not in await self.source.entries():
+     #       source = source.with_exec(["git", "init"]).with_exec(["git", "add", "."]).with_exec(["git", "commit", "-m", "'initial'"])
+     #   # return the git diff of the changes in the workspace
+     #   return await source.with_directory(".", self.ctr.directory(".")).with_exec(["git", "diff"]).stdout()
 
     @function
     async def comment(
