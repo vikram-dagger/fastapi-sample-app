@@ -63,7 +63,7 @@ class Book:
         - You are also an expert in Pydantic, SQLAlchemy and the Repository pattern.
         - The tests are failing
         - You have access to a workspace with the code and the tests
-        - The workspace has tools to let you read and write the code as well as run the tests
+        - The workspace has tools to let you read and write the code
         - In your workspace, fix the issues so that the tests pass
         - Be sure to always write your changes to the workspace
         - Always run the test tool after writing changes to the workspace
@@ -102,7 +102,7 @@ class Book:
         - You are also an expert in Pydantic, SQLAlchemy and the Repository pattern.
         - The tests are failing
         - You have access to a workspace with the code and the tests
-        - The workspace has tools to let you read and write the code as well as run the tests
+        - The workspace has tools to let you read and write the code
         - In your workspace, fix the issues so that the tests pass
         - Be sure to always write your changes to the workspace
         - Always run the test tool after writing changes to the workspace
