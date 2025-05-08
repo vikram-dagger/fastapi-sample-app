@@ -53,7 +53,7 @@ class Book:
     ) -> dagger.Directory:
         """Fixes the code in the source directory and returns the updated directory"""
         environment = (
-            dag.env()
+            dag.env(privileged=True)
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
             .with_directory_output("after", "the current directory with the updated code")
         )
@@ -91,7 +91,7 @@ class Book:
     ) -> str:
         """Diagnoses the code in the source directory and returns a comment and PR with the changes"""
         environment = (
-            dag.env()
+            dag.env(privileged=True)
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
             .with_workspace_output("after", "the workspace with the modified code")
             .with_string_output("summary", "proposal describing the changes the reader should make")
