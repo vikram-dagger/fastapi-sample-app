@@ -1,6 +1,7 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String
 from pydantic import BaseModel, ConfigDict
+from typing import Optional
 
 
 # SQLAlchemy models
@@ -26,6 +27,7 @@ class BookIn(BaseModel):
 
     title: str
     author: str
+    price: Optional[str] = None  # Make price optional
 
 
 class BookOut(BaseModel):
