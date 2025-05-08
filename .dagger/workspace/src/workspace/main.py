@@ -141,7 +141,7 @@ class Workspace:
             .with_exec(["git", "checkout", new_branch])
             .with_exec(["git", "apply", "/tmp/a.diff"])
             .with_exec(["git", "add", "."])
-            .with_exec(["git", "commit", "-m", f"Fixes for PR #{pr_number}"])
+            .with_exec(["git", "commit", "-m", f"Fixes PR #{pr_number}"])
             .with_exec(["git", "push", "--set-upstream", "origin", new_branch])
             .stdout()
         )
