@@ -15,7 +15,7 @@ class Book:
         return (
             dag.container()
             .from_(f"python:{version}")
-            .with_directory("/app", self.source.without_directory(".dagger").without_directory("agent"))
+            .with_directory("/app", self.source.without_directory(".dagger"))
             .with_workdir("/app")
             .with_mounted_cache("/root/.cache/pip", dag.cache_volume("python-pip"))
             .with_exec(["pip", "install", "-r", "requirements.txt"])
@@ -34,7 +34,7 @@ class Book:
         )
 
         cmd = (
-            self.ctr
+            self.env()
             .with_service_binding("db", postgresdb)
             .with_env_variable("DATABASE_URL", "postgresql://postgres:secret@db/app_test")
             .with_env_variable("CACHEBUSTER", str(datetime.now()))
