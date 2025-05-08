@@ -1,8 +1,9 @@
 from typing import Annotated, List
 import re
+import requests
 
 import dagger
-from dagger import DefaultPath, Secret, Doc, dag, function, object_type
+from dagger import DefaultPath, Secret, Doc, File, dag, function, object_type
 
 @object_type
 class Agent:
@@ -46,6 +47,7 @@ class Agent:
         repository: Annotated[str, Doc("The owner and repository name")],
         ref: Annotated[str, Doc("The ref name")],
         token: Annotated[Secret, Doc("GitHub API token")],
+        fix: Annotated[bool, Doc("Whether to open a new PR with the changes or not")] = True,
     ) -> str:
         environment = (
             dag.env()
@@ -67,7 +69,7 @@ class Agent:
         - Do not assume that errors are related to database connectivity or initialization
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
-        - Once done, summarize and rewrite your changes as proposed actions the reader "should" take
+        - Once done, summarize your changes, then rewrite as proposed actions the reader "should" take
         - Return the modified workspace along with your summary
         """
         work = (
@@ -84,16 +86,27 @@ class Agent:
             .as_string()
         )
 
-        # diff of the changes
-        diff = await (
+        # diff of the changes in a file
+        diff_file = await (
             work
             .env()
             .output("after")
             .as_workspace()
             .container()
-            .with_exec(["git", "diff"])
-            .stdout()
+            .with_exec(["sh", "-c", "git diff > /tmp/a.diff"])
+            .file("/tmp/a.diff")
         )
 
+        diff = await diff_file.contents()
+
+        # post comment with changes
         comment = f"{summary}\n\nDiff:\n\n```{diff}```"
-        return await dag.workspace(source=source, token=token).comment(repository, ref, comment)
+        comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment)
+        result_str = f"Comment posted: {comment_url}"
+
+        if fix:
+            # create new PR with the changes
+            pr_url = await dag.workspace(source=source, token=token).open_pr(repository, ref, diff_file)
+            result_str += f"\n\nPR created: {pr_url}"
+
+        return result_str
