@@ -101,13 +101,13 @@ class Book:
         - You are an expert in the Python FastAPI framework.
         - You are also an expert in Pydantic, SQLAlchemy and the Repository pattern.
         - The tests are failing
+        - You know that the errors are not related to database configuration or connectivity
         - You have access to a workspace with the code and the tests
         - The workspace has tools to let you read and write the code
         - In your workspace, fix the issues so that the tests pass
         - Be sure to always write your changes to the workspace
         - Always run the test tool after writing changes to the workspace
         - You are not done until the test tool is successful
-        - Do not assume that errors are related to database connectivity or initialization
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
         - Once done, summarize your changes, then rewrite as proposed actions the reader "should" take
