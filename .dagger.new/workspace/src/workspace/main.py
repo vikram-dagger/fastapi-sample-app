@@ -1,6 +1,7 @@
-from typing import Annotated, Self
+from typing import Annotated, Self, List
 from datetime import datetime
 import requests
+import json
 import re
 
 from dagger import Container, dag, Directory, DefaultPath, Doc, File, Secret, function, object_type, ReturnType
@@ -55,6 +56,33 @@ class Workspace:
         """Returns the list of files in the workspace at the provided path"""
         return await self.ctr.directory(path).entries()
 
+    @function
+    async def test(
+        self
+    ) -> str:
+        postgresdb = (
+            dag.container()
+            .from_("postgres:alpine")
+            .with_env_variable("POSTGRES_DB", "app_test")
+            .with_env_variable("POSTGRES_PASSWORD", "secret")
+            .with_exposed_port(5432)
+            .as_service(args=[], use_entrypoint=True)
+        )
+
+        cmd = (
+            self.ctr
+            .with_service_binding("db", postgresdb)
+            .with_env_variable("DATABASE_URL", "postgresql://postgres:secret@db/app_test")
+            .with_env_variable("CACHEBUSTER", str(datetime.now()))
+            .with_exec(["sh", "-c", "pytest --tb=short"], expect=ReturnType.ANY)
+            #.with_exec(["pytest"])
+        )
+        if await cmd.exit_code() != 0:
+            stderr = await cmd.stderr()
+            stdout = await cmd.stdout()
+            raise Exception(f"Tests failed. \nError: {stderr} \nOutput: {stdout}")
+        return await cmd.stdout()
+
 
     @function
     async def comment(
@@ -91,11 +119,11 @@ class Workspace:
         ref: Annotated[str, Doc("The ref name")],
         diff_file: Annotated[File, Doc("The diff file")],
     ) -> str:
-        """Creates a new PR with the changes"""
+
         plaintext = await self.token.plaintext()
         pr_number = int(re.search(r"(\d+)", ref).group(1))
         new_branch = f"patch-from-pr-{pr_number}"
-        remote_url = f"https://${{GITHUB_TOKEN}}@github.com/{repository}.git"
+        remote_url = f"https://$GITHUB_TOKEN@github.com/{repository}.git"
         diff = await diff_file.contents()
 
         await (
@@ -108,8 +136,7 @@ class Workspace:
             .with_exec(["git", "init"])
             .with_exec(["git", "config", "user.name", "Dagger Agent"])
             .with_exec(["git", "config", "user.email", "vikram@dagger.io"])
-            .with_exec(["sh", "-c", "git remote add origin " + remote_url])
-            .terminal()
+            .with_exec(["git", "remote", "add", "origin", remote_url])
             .with_exec(["git", "fetch", "origin", f"pull/{pr_number}/head:{new_branch}"])
             .with_exec(["git", "checkout", new_branch])
             .with_exec(["git", "apply", "/tmp/a.diff"])
