@@ -94,10 +94,11 @@ class Workspace:
         """Adds a comment to the PR"""
         #repository_url = f"https://github.com/{repository}"
         pr_number = int(re.search(r"(\d+)", ref).group(1))
+        plaintext = await self.token.plaintext()
 
         url = f"https://api.github.com/repos/{repository}/issues/{pr_number}/comments"
         headers = {
-            "Authorization": f"Bearer {self.token}",
+            "Authorization": f"Bearer {plaintext}",
             "Accept": "application/vnd.github+json"
         }
         data = {
