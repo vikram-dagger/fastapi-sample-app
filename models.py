@@ -26,6 +26,7 @@ class BookIn(BaseModel):
 
     title: str
     author: str
+    publisher: str  # Added the missing field 'publisher'
 
 
 class BookOut(BaseModel):
