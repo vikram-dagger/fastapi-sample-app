@@ -97,16 +97,19 @@ class Agent:
             .file("/tmp/a.diff")
         )
 
-        diff = await diff_file.contents()
-
-        # post comment with changes
-        comment = f"{summary}\n\nDiff:\n\n```{diff}```"
-        comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment)
-        result_str = f"Comment posted: {comment_url}"
-
         if fix:
             # create new PR with the changes
             pr_url = await dag.workspace(source=source, token=token).open_pr(repository, ref, diff_file)
             result_str += f"\n\nPR created: {pr_url}"
+
+        diff = await diff_file.contents()
+
+        # post comment with changes
+        comment_body = f"{summary}\n\nDiff:\n\n```{diff}```"
+        if fix:
+            comment_body += f"\n\nPR with fixes: {pr_url}"
+        comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment_body)
+        result_str = f"Comment posted: {comment_url}"
+
 
         return result_str

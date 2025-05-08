@@ -123,7 +123,7 @@ class Workspace:
         plaintext = await self.token.plaintext()
         pr_number = int(re.search(r"(\d+)", ref).group(1))
         new_branch = f"patch-from-pr-{pr_number}"
-        remote_url = f"https://{plaintext}@github.com/{repository}.git"
+        remote_url = f"https://$GITHUB_TOKEN@github.com/{repository}.git"
         diff = await diff_file.contents()
 
         await (
@@ -132,6 +132,7 @@ class Workspace:
             .from_("alpine/git")
             .with_new_file("/tmp/a.diff", f"{diff}")
             .with_workdir("/app")
+            .with_env_variable("GITHUB_TOKEN", plaintext)
             .with_exec(["git", "init"])
             .with_exec(["git", "config", "user.name", "Dagger Agent"])
             .with_exec(["git", "config", "user.email", "vikram@dagger.io"])
