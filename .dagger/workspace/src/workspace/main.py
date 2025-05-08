@@ -109,7 +109,6 @@ class Workspace:
             .with_exec(["git", "config", "user.name", "Dagger Agent"])
             .with_exec(["git", "config", "user.email", "vikram@dagger.io"])
             .with_exec(["sh", "-c", "git remote add origin " + remote_url])
-            .terminal()
             .with_exec(["git", "fetch", "origin", f"pull/{pr_number}/head:{new_branch}"])
             .with_exec(["git", "checkout", new_branch])
             .with_exec(["git", "apply", "/tmp/a.diff"])
