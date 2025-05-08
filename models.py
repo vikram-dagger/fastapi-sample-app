@@ -26,7 +26,7 @@ class BookIn(BaseModel):
 
     title: str
     author: str
-
+    publisher: str
 
 class BookOut(BaseModel):
     """Pydantic model for book output"""
