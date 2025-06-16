@@ -26,6 +26,7 @@ class BookIn(BaseModel):
 
     title: str
     author: str
+    publisher: str  # including the publisher key for internal logic similar fetch/provide
 
 
 class BookOut(BaseModel):
