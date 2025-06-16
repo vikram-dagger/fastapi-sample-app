@@ -78,7 +78,7 @@ class Book:
         environment = (
             dag.env(privileged=True)
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
-            .with_directory_output("after", "the current directory with the updated code")
+            .with_workspace_output("after", "the workspace with the updated code")
         )
 
         prompt = f"""
@@ -94,6 +94,7 @@ class Book:
         - You are not done until the test tool is successful
         - Focus only on Python files within the /app directory
         - Do not interact directly with the database; use the test tool only
+        - Return the modified workspace once you are done
         """
         work = (
             dag.llm()
@@ -101,7 +102,7 @@ class Book:
             .with_prompt(prompt)
         )
 
-        return work.env().output("after").as_directory()
+        return work.env().output("after").as_workspace().container().directory("/app")
 
     @function
     async def diagnose(
