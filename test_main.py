@@ -1,12 +1,11 @@
 from .repositories import create_book, get_books, get_book, update_book, delete_book
 from .models import BookIn
 from sqlalchemy import create_engine, inspect
-# from . import TEST_BOOKS
 
 # Test data constants
 TEST_BOOKS = [
-    {"title": "Carrie", "author": "Stephen King"},
-    {"title": "Ready Player One", "author": "Ernest Cline"},
+    {"title": "Carrie", "author": "Stephen King", "publisher": "Publisher A"},
+    {"title": "Ready Player One", "author": "Ernest Cline", "publisher": "Publisher B"},
 ]
 
 class TestMainApp:
@@ -57,7 +56,7 @@ class TestBookRepository:
 
     def test_delete_book(self, test_db):
         """Test deleting a book"""
-        book = create_book(test_db, BookIn(title="To Delete", author="Author"))
+        book = create_book(test_db, BookIn(title="To Delete", author="Author", publisher="Publisher C"))
         deleted_book = delete_book(test_db, book.id)
 
         assert deleted_book is not None
@@ -67,5 +66,5 @@ class TestBookRepository:
     def test_nonexistent_operations(self, test_db):
         """Test operations on nonexistent books"""
         assert get_book(test_db, 999999) is None
-        assert update_book(test_db, 999999, BookIn(title="Test", author="Test")) is None
+        assert update_book(test_db, 999999, BookIn(title="Test", author="Test", publisher="Publisher Unknown")) is None
         assert delete_book(test_db, 999999) is None
