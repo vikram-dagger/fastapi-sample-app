@@ -131,6 +131,7 @@ class Book:
         - The workspace has tools to let you read and write the code
         - In your workspace, fix the issues so that the tests pass
         - Be sure to always write your changes to the workspace
+        - Do not delete any fields from the models.
         - Always run the test tool after writing changes to the workspace
         - You are not done until the test tool is successful
         - Focus only on Python files within the /app directory
