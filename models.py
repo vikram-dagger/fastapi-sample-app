@@ -26,6 +26,7 @@ class BookIn(BaseModel):
 
     title: str
     author: str
+    publisher: str  # Added publisher to match the SQLAlchemy model
 
 
 class BookOut(BaseModel):
