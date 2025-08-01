@@ -25,14 +25,7 @@ class Book:
     @function
     def run(self) -> dagger.Service:
         """Starts the FastAPI server and returns the service"""
-        postgresdb = (
-            dag.container()
-            .from_("postgres:alpine")
-            .with_env_variable("POSTGRES_DB", "app")
-            .with_env_variable("POSTGRES_PASSWORD", "secret")
-            .with_exposed_port(5432)
-            .as_service(args=[], use_entrypoint=True)
-        )
+        postgresdb = self.db()
 
         return (
             self.env()
@@ -43,10 +36,9 @@ class Book:
             .as_service()
         )
 
-    @function
-    async def test(self) -> str:
-        """Runs the tests in the source code and returns the output"""
-        postgresdb = (
+    def db(self) -> dagger.Service:
+        """Returns a PostgreSQL service"""
+        return (
             dag.container()
             .from_("postgres:alpine")
             .with_env_variable("POSTGRES_DB", "app_test")
@@ -54,6 +46,11 @@ class Book:
             .with_exposed_port(5432)
             .as_service(args=[], use_entrypoint=True)
         )
+
+    @function
+    async def test(self) -> str:
+        """Runs the tests in the source code and returns the output"""
+        postgresdb = self.db()
 
         cmd = (
             self.env()
