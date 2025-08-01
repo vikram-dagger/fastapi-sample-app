@@ -1,3 +1,4 @@
+import random
 from typing import Annotated
 from datetime import datetime
 
@@ -42,8 +43,6 @@ class Book:
             .as_service()
         )
 
-
-
     @function
     async def test(self) -> str:
         """Runs the tests in the source code and returns the output"""
@@ -68,6 +67,24 @@ class Book:
             stdout = await cmd.stdout()
             raise Exception(f"Tests failed. \nError: {stderr} \nOutput: {stdout}")
         return await cmd.stdout()
+
+    @function
+    def build(self) -> dagger.Container:
+        """Builds the application container"""
+        return (
+            self.env()
+            .with_exposed_port(8000)
+            .with_entrypoint(["fastapi", "run", "main.py"])
+        )
+
+    @function
+    async def publish(self) -> str:
+        """Builds and publishes the application container to a registry"""
+        await self.test()
+        return await (
+            self.build()
+            .publish(f"ttl.sh/my-fastapi-app-{random.randrange(10**8)}")
+        )
 
     @function
     def fix(

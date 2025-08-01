@@ -1,0 +1,7 @@
+DROP TABLE books;
+
+CREATE TABLE books (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(50) UNIQUE NOT NULL,
+    author VARCHAR(100) UNIQUE NOT NULL
+);
