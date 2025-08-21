@@ -1,7 +1,7 @@
-from .repositories import create_book, get_books, get_book, update_book, delete_book
-from .models import BookIn
+from repositories import create_book, get_books, get_book, update_book, delete_book
+from models import BookIn
 from sqlalchemy import create_engine, inspect
-# from . import TEST_BOOKS
+
 
 # Test data constants
 TEST_BOOKS = [

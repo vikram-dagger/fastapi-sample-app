@@ -39,7 +39,7 @@ class Book:
             .with_service_binding("db", postgresdb)
             .with_env_variable("DATABASE_URL", "postgresql://postgres:app_test_secret@db/app_test")
             .with_env_variable("CACHEBUSTER", str(datetime.now()))
-            .with_exec(["sh", "-c", "pytest --tb=short"], expect=ReturnType.ANY)
+            .with_exec(["sh", "-c", "PYTHONPATH=$(pwd) pytest --tb=short"], expect=ReturnType.ANY)
         )
         if await cmd.exit_code() != 0:
             stderr = await cmd.stderr()
@@ -72,9 +72,9 @@ class Book:
         return (
             self.env()
             .with_exposed_port(8000)
-            .with_entrypoint(["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"])
+            #.with_entrypoint(["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"])
             #.with_workdir("/")
-            #.with_entrypoint(["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "trace", "--workers", "54"])
+            .with_entrypoint(["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "trace"])
             #.with_entrypoint(["gunicorn", "app.main:app", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--log-level", "debug"])
         )
 

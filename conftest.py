@@ -2,9 +2,9 @@ import pytest
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
-from .main import create_app
-from .dependencies import get_db, database_url
-from .models import Base
+from main import create_app
+from dependencies import get_db, database_url
+from models import Base
 
 @pytest.fixture(scope="session")
 def test_engine():
