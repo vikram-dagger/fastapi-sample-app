@@ -29,7 +29,7 @@ class Book:
             dag.container()
             .from_("postgres:alpine")
             .with_env_variable("POSTGRES_DB", "app_test")
-            .with_env_variable("POSTGRES_PASSWORD", "secret")
+            .with_env_variable("POSTGRES_PASSWORD", "app_test_secret")
             .with_exposed_port(5432)
             .as_service(args=[], use_entrypoint=True)
         )
@@ -37,7 +37,7 @@ class Book:
         cmd = (
             self.env()
             .with_service_binding("db", postgresdb)
-            .with_env_variable("DATABASE_URL", "postgresql://postgres:secret@db/app_test")
+            .with_env_variable("DATABASE_URL", "postgresql://postgres:app_test_secret@db/app_test")
             .with_env_variable("CACHEBUSTER", str(datetime.now()))
             .with_exec(["sh", "-c", "pytest --tb=short"], expect=ReturnType.ANY)
         )
@@ -48,12 +48,32 @@ class Book:
         return await cmd.stdout()
 
     @function
+    def serve(self) -> dagger.Container:
+        """Serves the application"""
+        postgresdb =  (
+            dag.container()
+            .from_("postgres:alpine")
+            .with_env_variable("POSTGRES_DB", "app")
+            .with_env_variable("POSTGRES_PASSWORD", "app_secret")
+            .with_exposed_port(5432)
+            .as_service(args=[], use_entrypoint=True)
+        )
+
+        return (
+            self.env()
+            .with_service_binding("db", postgresdb)
+            .with_env_variable("DATABASE_URL", "postgresql://postgres:app_secret@db/app")
+            .with_exposed_port(8000)
+            .with_entrypoint(["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"])
+        )
+
+    @function
     def build(self) -> dagger.Container:
         """Builds the application container"""
         return (
             self.env()
             .with_exposed_port(8000)
-            .with_entrypoint(["fastapi", "run", "main.py"])
+            .with_entrypoint(["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"])
         )
 
     @function
