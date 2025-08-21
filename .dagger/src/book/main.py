@@ -48,7 +48,7 @@ class Book:
         return await cmd.stdout()
 
     @function
-    def serve(self) -> dagger.Container:
+    def serve(self) -> dagger.Service:
         """Serves the application"""
         postgresdb =  (
             dag.container()
@@ -72,7 +72,8 @@ class Book:
         return (
             self.env()
             .with_exposed_port(8000)
-            .with_entrypoint(["fastapi", "dev", "main.py", "--host", "0.0.0.0", "--port", "8000"])
+            .with_workdir("/")
+            .with_entrypoint(["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"])
         )
 
     @function
