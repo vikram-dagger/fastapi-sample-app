@@ -194,3 +194,34 @@ class Book:
 
         comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment_body)
         return f"Comment posted: {comment_url}"
+
+
+    @function
+    async def fix_local(
+        self,
+        source: Annotated[dagger.Directory, DefaultPath("/")],
+    ) -> dagger.Directory:
+        """Diagnoses the test failures in the source directory and fixes them"""
+        environment = (
+            dag.env(privileged=True)
+            .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
+            .with_workspace_output("after", "the workspace with the modified code")
+            .with_string_output("summary", "list of changes made")
+        )
+
+        prompt_file = dag.current_module().source().file("src/book/fix_local.txt")
+        work = (
+            dag.llm()
+            .with_env(environment)
+            .with_prompt_file(prompt_file)
+        )
+
+        ctr = await (
+            work
+            .env()
+            .output("after")
+            .as_workspace()
+            .container()
+            .directory("/app")
+        )
+        return ctr

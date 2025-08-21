@@ -48,7 +48,7 @@ class Workspace:
         return self
 
     @function
-    async def ls(
+    async def list_files(
         self,
         path: Annotated[str, Doc("Path to get the list of files from")]
     ) -> list[str]:
