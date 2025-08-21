@@ -73,7 +73,6 @@ class Book:
             self.env()
             .with_exposed_port(8000)
             #.with_entrypoint(["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"])
-            #.with_workdir("/")
             .with_entrypoint(["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "trace"])
         )
 
