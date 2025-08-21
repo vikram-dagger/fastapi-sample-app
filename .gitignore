@@ -5,6 +5,7 @@
 .pytest_cache
 /.venv
 /**/__pycache__
+.goosehints
 
 # macOS
 .DS_Store
