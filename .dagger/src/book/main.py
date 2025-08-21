@@ -75,7 +75,6 @@ class Book:
             #.with_entrypoint(["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"])
             #.with_workdir("/")
             .with_entrypoint(["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "trace"])
-            #.with_entrypoint(["gunicorn", "app.main:app", "--bind", "0.0.0.0:8000", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--log-level", "debug"])
         )
 
     @function
