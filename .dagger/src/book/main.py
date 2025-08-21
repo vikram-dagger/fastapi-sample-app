@@ -60,11 +60,10 @@ class Book:
         )
 
         return (
-            self.env()
+            self.build()
             .with_service_binding("db", postgresdb)
             .with_env_variable("DATABASE_URL", "postgresql://postgres:app_secret@db/app")
-            .with_exposed_port(8000)
-            .with_entrypoint(["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"])
+            .as_service(args=[], use_entrypoint=True)
         )
 
     @function
@@ -73,7 +72,7 @@ class Book:
         return (
             self.env()
             .with_exposed_port(8000)
-            .with_entrypoint(["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "8000"])
+            .with_entrypoint(["fastapi", "dev", "main.py", "--host", "0.0.0.0", "--port", "8000"])
         )
 
     @function
