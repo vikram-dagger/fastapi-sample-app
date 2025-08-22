@@ -28,7 +28,7 @@ jobs:
         with:
           version: "0.18.16"
           verb: call
-          args: fix-ci --repository=$GITHUB_REPOSITORY --ref=$GITHUB_REF_NAME --token=env://GITHUB_API_TOKEN
+          args: fix --repository=$GITHUB_REPOSITORY --ref=$GITHUB_REF_NAME --token=env://GITHUB_API_TOKEN
           cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

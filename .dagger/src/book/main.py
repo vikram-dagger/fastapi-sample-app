@@ -98,8 +98,9 @@ class Book:
         ref: Annotated[str, Doc("Git ref")] | None = None,
         token: Annotated[Secret, Doc("GitHub API token")] | None = None,
     ) -> Result:
+        """Diagnoses the test failures in the source directory and fixes them. If repository, ref and token are provided, opens a PR with the fixes and posts a comment with the changes"""
         if repository and ref and token:
-            fsummary = await self.fix_ci(source, repository, ref, token)
+            fsummary = await self.fix_github(source, repository, ref, token)
             fdirectory = None
         else:
             fdirectory = await self.fix_local(source)
@@ -130,14 +131,14 @@ class Book:
         return await work.env().output("after").as_workspace().container().directory("/app")
 
     @function
-    async def fix_ci(
+    async def fix_github(
         self,
         source: Annotated[dagger.Directory, DefaultPath("/")],
         repository: Annotated[str, Doc("Owner and repository name")],
         ref: Annotated[str, Doc("Git ref")],
         token: Annotated[Secret, Doc("GitHub API token")],
     ) -> str:
-        """Diagnoses the test failures in the source directory and opens a PR with the fixes"""
+        """Diagnoses the test failures in the source repository, opens a PR with the fixes and posts a comment with the changes"""
         environment = (
             dag.env(privileged=True)
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
@@ -172,16 +173,13 @@ class Book:
             .file("/tmp/a.diff")
         )
 
-        #pr_url = await dag.workspace(source=source, token=token).open_pr(repository, ref, diff_file)
+        # open PR with changes
         pr_url = await dag.github_api().create_pr(repository, ref, diff_file, token)
 
-        diff = await diff_file.contents()
-
         # post comment with changes
+        diff = await diff_file.contents()
         comment_body = f"{summary}\n\nDiff:\n\n```{diff}```"
         comment_body += f"\n\nPR with fixes: {pr_url}"
-
-        #comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment_body)
         comment_url = await dag.github_api().create_comment(repository, ref, comment_body, token)
 
         return f"Comment posted: {comment_url}"
