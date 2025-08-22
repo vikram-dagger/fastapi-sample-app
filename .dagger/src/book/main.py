@@ -86,42 +86,6 @@ class Book:
         )
 
     @function
-    def fix(
-        self,
-        source: Annotated[dagger.Directory, DefaultPath("/")]
-    ) -> dagger.Directory:
-        """Fixes the code in the source directory and returns the updated directory"""
-        environment = (
-            dag.env(privileged=True)
-            .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
-            .with_workspace_output("after", "the workspace with the updated code")
-        )
-
-        prompt = f"""
-        - You are an expert in the Python FastAPI framework.
-        - You are also an expert in Pydantic, SQLAlchemy and the Repository pattern.
-        - The tests are failing
-        - You know that the errors are not related to database configuration or connectivity
-        - You have access to a workspace with the code and the tests
-        - The workspace has tools to let you read and write the code
-        - In your workspace, fix the issues so that the tests pass
-        - Be sure to always write your changes to the workspace
-        - Do not delete any fields from the models.
-        - Always run the test tool after writing changes to the workspace
-        - You are not done until the test tool is successful
-        - Focus only on Python files within the /app directory
-        - Do not interact directly with the database; use the test tool only
-        - Return the modified workspace once you are done
-        """
-        work = (
-            dag.llm()
-            .with_env(environment)
-            .with_prompt(prompt)
-        )
-
-        return work.env().output("after").as_workspace().container().directory("/app")
-
-    @function
     async def diagnose(
         self,
         source: Annotated[dagger.Directory, DefaultPath("/")],
@@ -209,19 +173,67 @@ class Book:
             .with_string_output("summary", "list of changes made")
         )
 
-        prompt_file = dag.current_module().source().file("src/book/fix_local.txt")
+        prompt_file = dag.current_module().source().file("src/book/fix.txt")
+
         work = (
             dag.llm()
             .with_env(environment)
             .with_prompt_file(prompt_file)
         )
 
-        ctr = await (
+        return await work.env().output("after").as_workspace().container().directory("/app")
+
+    @function
+    async def fix_ci(
+        self,
+        source: Annotated[dagger.Directory, DefaultPath("/")],
+        repository: Annotated[str, Doc("Owner and repository name")],
+        ref: Annotated[str, Doc("Git ref")],
+        token: Annotated[Secret, Doc("GitHub API token")],
+    ) -> str:
+        """Diagnoses the test failures in the source directory and opens a PR with the fixes"""
+        environment = (
+            dag.env(privileged=True)
+            .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
+            .with_workspace_output("after", "the workspace with the modified code")
+            .with_string_output("summary", "list of changes made")
+        )
+
+        prompt_file = dag.current_module().source().file("src/book/fix.txt")
+
+        work = (
+            dag.llm()
+            .with_env(environment)
+            .with_prompt_file(prompt_file)
+        )
+
+        # list of changes
+        summary = await (
+            work
+            .env()
+            .output("summary")
+            .as_string()
+        )
+
+        # diff of the changes in a file
+        diff_file = await (
             work
             .env()
             .output("after")
             .as_workspace()
             .container()
-            .directory("/app")
+            .with_exec(["sh", "-c", "git diff > /tmp/a.diff"])
+            .file("/tmp/a.diff")
         )
-        return ctr
+
+        pr_url = await dag.workspace(source=source, token=token).open_pr(repository, ref, diff_file)
+
+        diff = await diff_file.contents()
+
+        # post comment with changes
+        comment_body = f"{summary}\n\nDiff:\n\n```{diff}```"
+        comment_body += f"\n\nPR with fixes: {pr_url}"
+
+        comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment_body)
+
+        return f"Comment posted: {comment_url}"
