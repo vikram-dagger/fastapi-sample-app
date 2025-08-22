@@ -1,7 +1,5 @@
 from typing import Annotated, Self
 from datetime import datetime
-import requests
-import re
 
 from dagger import Container, dag, Directory, DefaultPath, Doc, File, Secret, function, object_type, ReturnType
 
