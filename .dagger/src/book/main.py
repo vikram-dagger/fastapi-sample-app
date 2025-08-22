@@ -173,7 +173,7 @@ class Book:
             .with_string_output("summary", "list of changes made")
         )
 
-        prompt_file = dag.current_module().source().file("prompts/fix.txt")
+        prompt_file = dag.current_module().source().file("src/book/prompt.fix.txt")
 
         work = (
             dag.llm()
@@ -199,7 +199,7 @@ class Book:
             .with_string_output("summary", "list of changes made")
         )
 
-        prompt_file = dag.current_module().source().file("prompts/fix.txt")
+        prompt_file = dag.current_module().source().file("src/book/prompt.fix.txt")
 
         work = (
             dag.llm()
@@ -226,7 +226,8 @@ class Book:
             .file("/tmp/a.diff")
         )
 
-        pr_url = await dag.workspace(source=source, token=token).open_pr(repository, ref, diff_file)
+        #pr_url = await dag.workspace(source=source, token=token).open_pr(repository, ref, diff_file)
+        pr_url = await dag.github_api().create_pr(repository, ref, diff_file, token)
 
         diff = await diff_file.contents()
 
@@ -234,6 +235,7 @@ class Book:
         comment_body = f"{summary}\n\nDiff:\n\n```{diff}```"
         comment_body += f"\n\nPR with fixes: {pr_url}"
 
-        comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment_body)
+        #comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment_body)
+        comment_url = await dag.github_api().comment(repository, ref, comment_body, token)
 
         return f"Comment posted: {comment_url}"
