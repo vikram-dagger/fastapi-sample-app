@@ -17,7 +17,7 @@ class Book(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     title: Mapped[str] = mapped_column(String(255), index=True)
-    author: Mapped[str] = mapped_column(String(255))
+    authoraaa: Mapped[str] = mapped_column(String(255))
 
 # Pydantic models
 class BookIn(BaseModel):
