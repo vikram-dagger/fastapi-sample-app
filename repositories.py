@@ -4,7 +4,7 @@ import models
 
 # Create a new book
 def create_book(db: Session, book: models.BookIn):
-    db_book = models.Book(title=book.title, author=book.author)
+    db_book = models.Book(title=book.title, author=book.author, price=book.price)
     db.add(db_book)
     db.commit()
     db.refresh(db_book)
@@ -27,6 +27,7 @@ def update_book(db: Session, book_id: int, book: models.BookIn):
     if db_book:
         db_book.title = book.title
         db_book.author = book.author
+        db_book.price = book.price
         db.commit()
         db.refresh(db_book)
         return db_book
