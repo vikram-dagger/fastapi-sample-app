@@ -55,6 +55,30 @@ class Workspace:
         """Returns the list of files in the workspace at the provided path"""
         return await self.ctr.directory(path).entries()
 
+    @function
+    async def test(self) -> str:
+        """Runs the tests in the source code and returns the output"""
+        postgresdb =  (
+            dag.container()
+            .from_("postgres:alpine")
+            .with_env_variable("POSTGRES_DB", "app_test")
+            .with_env_variable("POSTGRES_PASSWORD", "app_test_secret")
+            .with_exposed_port(5432)
+            .as_service(args=[], use_entrypoint=True)
+        )
+
+        cmd = (
+            self.ctr
+            .with_service_binding("db", postgresdb)
+            .with_env_variable("DATABASE_URL", "postgresql://postgres:app_test_secret@db/app_test")
+            .with_env_variable("CACHEBUSTER", str(datetime.now()))
+            .with_exec(["sh", "-c", "PYTHONPATH=$(pwd) pytest --tb=short"], expect=ReturnType.ANY)
+        )
+        if await cmd.exit_code() != 0:
+            stderr = await cmd.stderr()
+            stdout = await cmd.stdout()
+            raise Exception(f"Tests failed. \nError: {stderr} \nOutput: {stdout}")
+        return await cmd.stdout()
 
     @function
     async def comment(
