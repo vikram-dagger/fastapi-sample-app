@@ -107,7 +107,6 @@ class Book:
             fsummary = "Local fix completed"
         return Result(fdirectory=fdirectory, fsummary=fsummary)
 
-    @function
     async def fix_local(
         self,
         source: Annotated[dagger.Directory, DefaultPath("/")],
@@ -130,7 +129,6 @@ class Book:
 
         return await work.env().output("after").as_workspace().container().directory("/app")
 
-    @function
     async def fix_github(
         self,
         source: Annotated[dagger.Directory, DefaultPath("/")],
