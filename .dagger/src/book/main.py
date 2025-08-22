@@ -7,6 +7,7 @@ from dagger import Container, dag, field, Directory, DefaultPath, Doc, File, Sec
 
 @object_type
 class Result:
+    """Custom type to handle the result of local and GitHub fixes"""
     fdirectory: dagger.Directory = field()
     fsummary: str = field()
 
