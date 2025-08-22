@@ -236,6 +236,6 @@ class Book:
         comment_body += f"\n\nPR with fixes: {pr_url}"
 
         #comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment_body)
-        comment_url = await dag.github_api().comment(repository, ref, comment_body, token)
+        comment_url = await dag.github_api().create_comment(repository, ref, comment_body, token)
 
         return f"Comment posted: {comment_url}"
