@@ -53,6 +53,7 @@ class Workspace:
         """Returns the list of files in the workspace at the provided path"""
         return await self.ctr.directory(path).entries()
 
+    # TODO: duplication from main module, remove once self calls are supported
     @function
     async def test(self) -> str:
         """Runs the tests in the source code and returns the output"""
