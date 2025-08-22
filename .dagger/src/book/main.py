@@ -98,7 +98,7 @@ class Book:
         ref: Annotated[str, Doc("Git ref")] | None = None,
         token: Annotated[Secret, Doc("GitHub API token")] | None = None,
     ) -> Result:
-        """Diagnoses the test failures in the source directory and fixes them. If repository, ref and token are provided, opens a PR with the fixes and posts a comment with the changes"""
+        """Diagnoses test failures in the source code and fixes them"""
         if repository and ref and token:
             fsummary = await self.fix_github(source, repository, ref, token)
             fdirectory = None
@@ -112,7 +112,7 @@ class Book:
         self,
         source: Annotated[dagger.Directory, DefaultPath("/")],
     ) -> dagger.Directory:
-        """Diagnoses the test failures in the source directory and fixes them"""
+        """Diagnoses test failures in the source directory and fixes them"""
         environment = (
             dag.env(privileged=True)
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
@@ -138,7 +138,7 @@ class Book:
         ref: Annotated[str, Doc("Git ref")],
         token: Annotated[Secret, Doc("GitHub API token")],
     ) -> str:
-        """Diagnoses the test failures in the source repository, opens a PR with the fixes and posts a comment with the changes"""
+        """Diagnoses test failures in the source repository and opens a PR with fixes"""
         environment = (
             dag.env(privileged=True)
             .with_workspace_input("before", dag.workspace(source=source), "the workspace to use for code and tests")
