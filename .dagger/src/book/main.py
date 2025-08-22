@@ -173,7 +173,7 @@ class Book:
             .with_string_output("summary", "list of changes made")
         )
 
-        prompt_file = dag.current_module().source().file("src/book/fix.txt")
+        prompt_file = dag.current_module().source().file("prompts/fix.txt")
 
         work = (
             dag.llm()
@@ -199,7 +199,7 @@ class Book:
             .with_string_output("summary", "list of changes made")
         )
 
-        prompt_file = dag.current_module().source().file("src/book/fix.txt")
+        prompt_file = dag.current_module().source().file("prompts/fix.txt")
 
         work = (
             dag.llm()
