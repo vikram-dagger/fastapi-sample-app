@@ -3,8 +3,12 @@ from typing import Annotated
 from datetime import datetime
 
 import dagger
-from dagger import Container, dag, Directory, DefaultPath, Doc, File, Secret, function, object_type, ReturnType
+from dagger import Container, dag, field, Directory, DefaultPath, Doc, File, Secret, function, object_type, ReturnType
 
+@object_type
+class Result:
+    fdirectory: dagger.Directory = field()
+    fsummary: str = field()
 
 @object_type
 class Book:
@@ -159,6 +163,21 @@ class Book:
         comment_url = await dag.workspace(source=source, token=token).comment(repository, ref, comment_body)
         return f"Comment posted: {comment_url}"
 
+    @function
+    async def fix(
+        self,
+        source: Annotated[dagger.Directory, DefaultPath("/")],
+        repository: Annotated[str, Doc("Owner and repository name")] | None,
+        ref: Annotated[str, Doc("Git ref")] | None,
+        token: Annotated[Secret, Doc("GitHub API token")] | None,
+    ) -> Result:
+        if repository and ref and token:
+            fsummary = await self.fix_ci(source, repository, ref, token)
+            fdirectory = None
+        else:
+            fdirectory = await self.fix_local(source)
+            fsummary = "Local fix completed"
+        return Result(fdirectory=fdirectory, fsummary=fsummary)
 
     @function
     async def fix_local(
