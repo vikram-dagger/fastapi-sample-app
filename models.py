@@ -26,6 +26,7 @@ class BookIn(BaseModel):
 
     title: str
     author: str
+    publisher: str
 
 
 class BookOut(BaseModel):
@@ -34,5 +35,6 @@ class BookOut(BaseModel):
     id: int
     title: str
     author: str
+    publisher: str
 
     model_config = ConfigDict(from_attributes=True)

@@ -5,8 +5,8 @@ from sqlalchemy import create_engine, inspect
 
 # Test data constants
 TEST_BOOKS = [
-    {"title": "Carrie", "author": "Stephen King"},
-    {"title": "Ready Player One", "author": "Ernest Cline"},
+    {"title": "Carrie", "author": "Stephen King", "publisher": "Doubleday"},
+    {"title": "Ready Player One", "author": "Ernest Cline", "publisher": "Random House"},
 ]
 
 class TestMainApp:
@@ -57,7 +57,7 @@ class TestBookRepository:
 
     def test_delete_book(self, test_db):
         """Test deleting a book"""
-        book = create_book(test_db, BookIn(title="To Delete", author="Author"))
+        book = create_book(test_db, BookIn(title="To Delete", author="Author", publisher="Unknown"))
         deleted_book = delete_book(test_db, book.id)
 
         assert deleted_book is not None
@@ -67,5 +67,5 @@ class TestBookRepository:
     def test_nonexistent_operations(self, test_db):
         """Test operations on nonexistent books"""
         assert get_book(test_db, 999999) is None
-        assert update_book(test_db, 999999, BookIn(title="Test", author="Test")) is None
+        assert update_book(test_db, 999999, BookIn(title="Test", author="Test", publisher="Unknown")) is None
         assert delete_book(test_db, 999999) is None
