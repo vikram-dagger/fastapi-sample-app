@@ -5,8 +5,8 @@ from sqlalchemy import create_engine, inspect
 
 # Test data constants
 TEST_BOOKS = [
-    {"title": "Carrie", "author": "Stephen King"},
-    {"title": "Ready Player One", "author": "Ernest Cline"},
+    {"title": "Carrie", "author": "Stephen King", "publisher": "Doubleday"},
+    {"title": "Ready Player One", "author": "Ernest Cline", "publisher": "Crown"},
 ]
 
 class TestMainApp:
@@ -26,6 +26,7 @@ class TestBookRepository:
         book = create_book(test_db, BookIn(**TEST_BOOKS[0]))
         assert book.title == TEST_BOOKS[0]["title"]
         assert book.author == TEST_BOOKS[0]["author"]
+        assert book.publisher == TEST_BOOKS[0]["publisher"]
         assert book.id is not None
 
     def test_get_books(self, test_db):
@@ -45,6 +46,7 @@ class TestBookRepository:
         assert retrieved_book is not None
         assert retrieved_book.id == created_book.id
         assert retrieved_book.title == TEST_BOOKS[0]["title"]
+        assert retrieved_book.publisher == TEST_BOOKS[0]["publisher"]
 
     def test_update_book(self, test_db):
         """Test updating a book"""
@@ -54,10 +56,11 @@ class TestBookRepository:
         assert updated_book is not None
         assert updated_book.title == TEST_BOOKS[1]["title"]
         assert updated_book.author == TEST_BOOKS[1]["author"]
+        assert updated_book.publisher == TEST_BOOKS[1]["publisher"]
 
     def test_delete_book(self, test_db):
         """Test deleting a book"""
-        book = create_book(test_db, BookIn(title="To Delete", author="Author"))
+        book = create_book(test_db, BookIn(title="To Delete", author="Author", publisher="Test Publisher"))
         deleted_book = delete_book(test_db, book.id)
 
         assert deleted_book is not None
@@ -67,5 +70,5 @@ class TestBookRepository:
     def test_nonexistent_operations(self, test_db):
         """Test operations on nonexistent books"""
         assert get_book(test_db, 999999) is None
-        assert update_book(test_db, 999999, BookIn(title="Test", author="Test")) is None
+        assert update_book(test_db, 999999, BookIn(title="Test", author="Test", publisher="Test Publisher")) is None
         assert delete_book(test_db, 999999) is None
