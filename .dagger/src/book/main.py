@@ -106,7 +106,7 @@ class Book:
         else:
             fdirectory = await self.fix_local(source)
             fsummary = "Local fix completed"
-        return Result(fdirectory=fdirectory, fsummary=fsummary)
+        return await Result(fdirectory=fdirectory, fsummary=fsummary)
 
     async def fix_local(
         self,
